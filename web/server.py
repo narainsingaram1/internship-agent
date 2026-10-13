@@ -23,7 +23,7 @@ if ROOT_DIR not in sys.path:
 
 from src.browser import BrowserSession
 from src.detector import ATSDetector
-from src.parsers import GreenhouseParser, LeverParser, GenericParser
+from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, GenericParser
 from src.llm import LLMClient
 from src.executor import FormExecutor
 from src.tracker import ApplicationTracker
@@ -173,6 +173,10 @@ def run_autofill_worker(target_url: str, headed: bool):
             parser = GreenhouseParser()
         elif platform == "lever":
             parser = LeverParser()
+        elif platform == "workday":
+            parser = WorkdayParser()
+        elif platform == "icims":
+            parser = ICIMSParser()
         else:
             parser = GenericParser()
 
@@ -181,24 +185,53 @@ def run_autofill_worker(target_url: str, headed: bool):
         engine.job_meta = job_meta
         engine.log(f"Role: {job_meta.get('title', 'Unknown')} at {job_meta.get('company', 'Unknown')}")
 
-        engine.set_step(3, "Extracting Interactive Form Elements")
-        fields = parser.extract_fields(page)
-        if not fields:
-            fields = GenericParser().extract_fields(page)
-        engine.log(f"Found {len(fields)} interactive fields.")
+        all_succeeded = []
+        all_failed = []
+        all_skipped = []
+        all_questions_to_review = []
 
-        engine.set_step(4, "Mapping Fields via OpenRouter AI")
-        engine.log("Querying OpenRouter Free Tier model for structured mapping...")
         profile = get_profile()
         llm = LLMClient()
-        plan = llm.generate_fill_plan(fields, profile, job_meta)
-        engine.plan = plan
-
-        engine.set_step(5, "Autofilling Form Fields")
-        engine.log("Executing autofill actions and attaching PDF resume...")
         executor = FormExecutor(page, profile, project_root=ROOT_DIR)
-        exec_results = executor.execute_plan(plan)
-        engine.execution_results = exec_results
+
+        # Multi-step wizard loop (supports Workday and multi-page forms up to 6 steps)
+        max_steps = 6
+        step_count = 1
+
+        while step_count <= max_steps:
+            engine.set_step(3, f"Extracting Form Step {step_count}")
+            fields = parser.extract_fields(page)
+            if not fields:
+                fields = GenericParser().extract_fields(page)
+            
+            engine.log(f"Step {step_count}: Found {len(fields)} interactive fields.")
+
+            if fields:
+                engine.set_step(4, f"Mapping Step {step_count} via OpenRouter AI")
+                plan = llm.generate_fill_plan(fields, profile, job_meta)
+                engine.plan = plan
+                all_questions_to_review.extend(plan.questions_to_review)
+
+                engine.set_step(5, f"Autofilling Step {step_count}")
+                exec_results = executor.execute_plan(plan)
+                all_succeeded.extend(exec_results.get("succeeded", []))
+                all_failed.extend(exec_results.get("failed", []))
+                all_skipped.extend(exec_results.get("skipped", []))
+
+            # Check if Workday or multi-page form has a "Next" / "Save and Continue" button
+            if platform == "workday" and hasattr(parser, "has_next_step") and parser.has_next_step(page):
+                engine.log(f"Workday multi-step wizard: Advancing to next step...")
+                parser.click_next_step(page)
+                step_count += 1
+            else:
+                break
+
+        combined_results = {
+            "succeeded": all_succeeded,
+            "failed": all_failed,
+            "skipped": all_skipped,
+        }
+        engine.execution_results = combined_results
 
         # Capture preview screenshot
         page.screenshot(path=SCREENSHOT_PATH)
@@ -210,8 +243,8 @@ def run_autofill_worker(target_url: str, headed: bool):
                 engine.broadcast({
                     "type": "review_ready",
                     "job_meta": engine.job_meta,
-                    "plan": plan.dict(),
-                    "results": exec_results,
+                    "plan": {"questions_to_review": list(set(all_questions_to_review))},
+                    "results": combined_results,
                     "has_screenshot": True,
                 }),
                 engine.loop

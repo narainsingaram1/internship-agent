@@ -1,0 +1,79 @@
+personal:
+  first_name: Narainkarthigeyan
+  last_name: Singaram Balamurugan
+  preferred_name: Alex
+  email: nbalamurugan3@gatech.edu
+  phone: '4707382094'
+  location: San Francisco, CA
+  address: 123 University Ave
+  city: San Francisco
+  state: CA
+  zip_code: '94105'
+  country: United States
+links:
+  linkedin: https://www.linkedin.com/in/narain-singaram/
+  github: https://github.com/narainsingaram1
+  portfolio: https://narainsingaram.vercel.app/
+  twitter: ''
+documents:
+  resume_path: assets/resume.pdf
+  transcript_path: assets/transcript.pdf
+  cover_letter_path: ''
+education:
+  school: Georgia Institute of Technology
+  degree: Bachelor of Science
+  major: Computer Science
+  gpa: '3.89'
+  gpa_scale: '4.0'
+  start_date: August 2022
+  graduation_date: May 2026
+  is_current_student: true
+work_authorization:
+  authorized_in_us: true
+  requires_sponsorship_now: false
+  requires_sponsorship_future: false
+  citizenship_status: U.S. Citizen
+  can_work_in_person: true
+  can_relocate: true
+demographics_eeoc:
+  gender: Decline To Self Identify
+  race_ethnicity: Decline To Self Identify
+  veteran_status: I am not a protected veteran
+  disability_status: No, I do not have a disability
+preferences:
+  expected_hourly_pay: Competitive / Market Rate
+  available_start_date: May 2026
+  preferred_location: San Francisco, CA (or Remote)
+screening_knowledge_base:
+  years_of_experience: 1
+  primary_languages:
+  - Python
+  - TypeScript
+  - Go
+  - Java
+  - SQL
+  favorite_frameworks:
+  - React
+  - FastAPI
+  - Node.js
+  - PostgreSQL
+  - Docker
+  answers:
+    why_engineering: 'I am passionate about building resilient systems and clean software
+      that solves real user problems. I thrive when tackling complex architectural
+      and full-stack challenges.
+
+      '
+    notable_project: 'Designed and built an open-source real-time analytics engine
+      processing 15,000 events/sec with FastAPI and Redis, reducing query latencies
+      by 40%.
+
+      '
+    greatest_strength: 'Relentless debugging ability, fast learning curve with new
+      codebases, and strong ownership of shipped code.
+
+      '
+  essay_tone: "Sound like a sharp, humble, motivated undergraduate engineer. Be direct,\
+    \ authentic, and specific. Avoid clich\xE9s like 'I have always dreamed of working\
+    \ at [Company]' or corporate jargon like 'synergy'. Keep answers under 3-4 sentences\
+    \ unless a longer length is explicitly required.\n"
