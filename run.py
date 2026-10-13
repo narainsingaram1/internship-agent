@@ -13,6 +13,7 @@ from src.llm import LLMClient
 from src.memory import MemoryStore
 from src.resolver import TwoTierResolver
 from src.executor import FormExecutor
+from src.controller import ApplicationController
 from src.cli import HITLReviewer
 from src.tracker import ApplicationTracker
 
@@ -100,23 +101,10 @@ def main():
         if job_meta.get("company"):
             console.print(f"Company: [bold white]{job_meta.get('company')}[/bold white]")
 
-        # 6. Extract Fields
-        form_fields = parser.extract_fields(page)
-        if not form_fields:
-            console.print("[yellow]No form fields found on direct page. Trying generic scan...[/yellow]")
-            form_fields = GenericParser().extract_fields(page)
-
-        console.print(f"Found [bold cyan]{len(form_fields)}[/bold cyan] interactive form fields.")
-
-        # 7. Generate Plan via Two-Tier Resolver & Memory
-        console.print("[dim]Resolving standard fields & synthesizing answers with AI Brain + Memory...[/dim]")
         resolver = TwoTierResolver(MemoryStore(os.path.join(root_dir, "data", "memory_store.json")), llm)
-        plan = resolver.resolve_form(form_fields, profile, job_meta)
-
-        # 8. Execute Fill Plan
-        console.print(f"[dim]Filling fields with Playwright...[/dim]")
         executor = FormExecutor(page, profile, project_root=root_dir)
-        exec_results = executor.execute_plan(plan)
+        controller = ApplicationController(page, parser, resolver, executor, log=logger.info)
+        plan, exec_results = controller.run(profile, job_meta)
 
         # 9. Human-In-The-Loop Verification
         reviewer = HITLReviewer(page)

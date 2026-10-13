@@ -70,9 +70,10 @@ class WorkdayParser(BaseParser):
             logger.warning(f"Error preparing Workday application view: {e}")
             return False
 
-    def extract_fields(self, page: Page) -> List[Dict[str, Any]]:
+    def extract_fields(self, page: Page, prepare: bool = True) -> List[Dict[str, Any]]:
         """Extract interactive fields from the current active Workday page step."""
-        self.prepare_application_view(page)
+        if prepare:
+            self.prepare_application_view(page)
 
         raw_fields = page.evaluate("""() => {
             const results = [];

@@ -131,9 +131,12 @@ with tab_apply:
         try:
             from src.browser import BrowserSession
             from src.detector import ATSDetector
-            from src.parsers import GreenhouseParser, LeverParser, GenericParser
+            from src.parsers import GreenhouseParser, LeverParser, GenericParser, WorkdayParser, ICIMSParser, WorkableParser
             from src.llm import LLMClient
             from src.executor import FormExecutor
+            from src.controller import ApplicationController
+            from src.resolver import TwoTierResolver
+            from src.memory import MemoryStore
 
             platform, meta = ATSDetector.identify(st.session_state.target_url)
             meta["url"] = st.session_state.target_url
@@ -149,6 +152,12 @@ with tab_apply:
                 parser = GreenhouseParser()
             elif platform == "lever":
                 parser = LeverParser()
+            elif platform == "workday":
+                parser = WorkdayParser()
+            elif platform == "icims":
+                parser = ICIMSParser()
+            elif platform == "workable":
+                parser = WorkableParser()
             else:
                 parser = GenericParser()
 
@@ -157,23 +166,14 @@ with tab_apply:
 
             progress_bar.progress(50)
             status_box.info(f"📄 Extracting form fields for **{job_meta.get('title', 'Role')}**...")
-            form_fields = parser.extract_fields(page)
-            if not form_fields:
-                form_fields = GenericParser().extract_fields(page)
-
-            progress_bar.progress(70)
-            status_box.info(f"🧠 OpenRouter AI resolving {len(form_fields)} fields...")
             profile = get_profile()
-            llm = LLMClient()
-            plan = llm.generate_fill_plan(form_fields, profile, job_meta)
-
-            progress_bar.progress(85)
-            status_box.info("✍️ Autofilling fields & attaching resume...")
+            resolver = TwoTierResolver(MemoryStore(os.path.join(DATA_DIR, "memory_store.json")), LLMClient())
             executor = FormExecutor(page, profile, project_root=ROOT_DIR)
-            exec_results = executor.execute_plan(plan)
-
+            progress_bar.progress(70)
+            controller = ApplicationController(page, parser, resolver, executor)
+            plan, exec_results = controller.run(profile, job_meta)
             progress_bar.progress(100)
-            status_box.success("✅ Form successfully filled! Now awaiting your verification.")
+            status_box.info(plan.summary)
 
             # Save screenshot for UI
             screenshot_path = os.path.join(DATA_DIR, "preview.png")

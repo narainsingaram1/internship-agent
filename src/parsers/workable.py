@@ -73,9 +73,10 @@ class WorkableParser(BaseParser):
 
         return {"title": title or page.title(), "company": company, "platform": "workable"}
 
-    def extract_fields(self, page: Page) -> List[Dict[str, Any]]:
+    def extract_fields(self, page: Page, prepare: bool = True) -> List[Dict[str, Any]]:
         """Extract all interactive form fields from Workable application form."""
-        self.ensure_application_view(page)
+        if prepare:
+            self.ensure_application_view(page)
         self.dismiss_overlays(page)
 
         # Ensure scroll to load lazy-rendered custom questions

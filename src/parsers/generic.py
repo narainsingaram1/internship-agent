@@ -110,9 +110,10 @@ class GenericParser(BaseParser):
             "platform": "generic",
         }
 
-    def extract_fields(self, page: Page) -> List[Dict[str, Any]]:
+    def extract_fields(self, page: Page, prepare: bool = True) -> List[Dict[str, Any]]:
         """Walk all visible interactive form controls across main document and accessible iframes."""
-        self.ensure_application_view(page)
+        if prepare:
+            self.ensure_application_view(page)
         self.dismiss_overlays(page)
 
         raw_fields = page.evaluate(r"""() => {
@@ -128,8 +129,8 @@ class GenericParser(BaseParser):
                     // Visibility check
                     try {
                         const style = window.getComputedStyle(el);
-                        if (style.display === 'none' && el.type !== 'file') return;
-                        if (style.visibility === 'hidden' && el.type !== 'file') return;
+                        if (style.display === 'none' && !['file', 'radio', 'checkbox'].includes(el.type)) return;
+                        if (style.visibility === 'hidden' && !['file', 'radio', 'checkbox'].includes(el.type)) return;
                     } catch (e) {}
 
                     // Find label

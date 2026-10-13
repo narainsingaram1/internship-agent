@@ -60,9 +60,10 @@ class ICIMSParser(BaseParser):
             logger.warning(f"Error clicking iCIMS start button: {e}")
         return False
 
-    def extract_fields(self, page: Page) -> List[Dict[str, Any]]:
+    def extract_fields(self, page: Page, prepare: bool = True) -> List[Dict[str, Any]]:
         """Extract interactive fields from active iCIMS form inside frame or page."""
-        self.prepare_application_view(page)
+        if prepare:
+            self.prepare_application_view(page)
         frame = self.get_frame(page)
 
         # JavaScript evaluation across the active document/frame

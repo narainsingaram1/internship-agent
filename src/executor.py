@@ -5,6 +5,7 @@ import time
 import logging
 from typing import Dict, Any, List, Optional
 from playwright.sync_api import Page, TimeoutError
+from playwright.sync_api import expect
 
 from .llm.prompts import FormFillPlan, FormFieldAction
 
@@ -170,10 +171,11 @@ class FormExecutor:
 
             try:
                 self._execute_single_action(action)
+                actual_value = self._verify_action(action)
                 results["succeeded"].append({
                     "field": action.field_name,
                     "type": action.action_type,
-                    "value": action.value,
+                    "value": actual_value,
                     "confidence": action.confidence,
                 })
             except Exception as e:
@@ -185,6 +187,44 @@ class FormExecutor:
                 })
 
         return results
+
+    def _verify_action(self, action: FormFieldAction) -> str:
+        """An interaction is successful only when the control exposes the result."""
+        loc = self._get_element_locator(action.selector)
+        tag = loc.evaluate("el => el.tagName.toLowerCase()")
+        if action.action_type == "upload_file":
+            expected_name = os.path.basename(self._resolve_file_path(action.value.lower()))
+            names = loc.evaluate("el => Array.from(el.files || []).map(f => f.name)")
+            if expected_name not in names:
+                raise ValueError("Upload could not be verified on the intended input")
+            return expected_name
+        if action.action_type == "click_checkbox":
+            checked = action.value.lower() in ["true", "yes", "1"]
+            expect(loc).to_be_checked(checked=checked, timeout=2000)
+            return str(checked).lower()
+        if action.action_type == "type_text":
+            expect(loc).to_have_value(action.value, timeout=2000)
+            return loc.input_value()
+        if action.action_type == "select_option":
+            if tag == "select":
+                selected = loc.locator("option:checked").inner_text().strip()
+                expected = OptionMatcher.find_best_option(
+                    action.value, action.field_name, loc.locator("option").all_inner_texts()
+                )
+                if not expected or selected != expected:
+                    raise ValueError(f"Selection mismatch: expected {expected!r}, observed {selected!r}")
+                return selected
+            if loc.get_attribute("type") in ["radio", "checkbox"]:
+                expect(loc).to_be_checked(timeout=2000)
+                return action.value
+            # Custom widgets must expose their selected label/value, not just close a popup.
+            expected = self.executed_options.get(action.selector, action.value)
+            if tag in ["input", "textarea"]:
+                expect(loc).to_have_value(expected, timeout=2000)
+            else:
+                expect(loc).to_have_text(expected, timeout=2000)
+            return expected
+        raise ValueError(f"Unsupported action: {action.action_type}")
 
     def _get_element_locator(self, selector: str):
         """Find element on main page or inside iCIMS iframe if present."""
@@ -284,9 +324,8 @@ class FormExecutor:
         elif action.action_type == "select_option":
             # 1. Check if a clickable radio/label exists with this exact text
             try:
-                label_loc = self.page.locator(f"label:has-text('{action.value}')").first
-                if label_loc.count() > 0 and label_loc.is_visible():
-                    label_loc.click(force=True, timeout=1500)
+                if loc.get_attribute("type") == "radio":
+                    loc.check(timeout=1500)
                     return
             except Exception:
                 pass
@@ -331,6 +370,9 @@ class FormExecutor:
                         pass
                     opt.click(force=True, timeout=2000)
                     self._record_executed_option(action.field_name, target_to_click)
+                    self.executed_options[action.selector] = target_to_click
+                else:
+                    raise ValueError(f"No visible option matches {action.value!r}")
 
                 # Ensure popup is cleanly closed and input is blurred
                 self.page.wait_for_timeout(200)

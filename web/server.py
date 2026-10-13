@@ -28,6 +28,7 @@ from src.llm import LLMClient
 from src.memory import MemoryStore
 from src.resolver import TwoTierResolver
 from src.executor import FormExecutor
+from src.controller import ApplicationController
 from src.tracker import ApplicationTracker
 
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
@@ -195,58 +196,22 @@ def run_autofill_worker(target_url: str, headed: bool):
         engine.job_meta = job_meta
         engine.log(f"Role: {job_meta.get('title', 'Unknown')} at {job_meta.get('company', 'Unknown')}")
 
-        all_succeeded = []
-        all_failed = []
-        all_skipped = []
-        all_questions_to_review = []
-
         profile = get_profile()
         memory_store = MemoryStore(os.path.join(DATA_DIR, "memory_store.json"))
         resolver = TwoTierResolver(memory_store=memory_store, llm_client=LLMClient())
         executor = FormExecutor(page, profile, project_root=ROOT_DIR)
-
-        # Multi-step wizard loop (supports Workday and multi-page forms up to 6 steps)
-        max_steps = 6
-        step_count = 1
-
-        while step_count <= max_steps:
-            engine.set_step(3, f"Extracting Form Step {step_count}")
-            fields = parser.extract_fields(page)
-            if not fields:
-                fields = GenericParser().extract_fields(page)
-            
-            engine.log(f"Step {step_count}: Found {len(fields)} interactive fields.")
-
-            if fields:
-                engine.set_step(4, f"Two-Tier Resolution & AI Reasoning (Step {step_count})")
-                plan = resolver.resolve_form(fields, profile, job_meta)
-                engine.plan = plan
-                all_questions_to_review.extend(plan.questions_to_review)
-
-                engine.set_step(5, f"Autofilling Step {step_count}")
-                exec_results = executor.execute_plan(plan)
-                all_succeeded.extend(exec_results.get("succeeded", []))
-                all_failed.extend(exec_results.get("failed", []))
-                all_skipped.extend(exec_results.get("skipped", []))
-
-            # Check if Workday or multi-page form has a "Next" / "Save and Continue" button
-            if platform == "workday" and hasattr(parser, "has_next_step") and parser.has_next_step(page):
-                engine.log(f"Workday multi-step wizard: Advancing to next step...")
-                parser.click_next_step(page)
-                step_count += 1
-            else:
-                break
-
-        combined_results = {
-            "succeeded": all_succeeded,
-            "failed": all_failed,
-            "skipped": all_skipped,
-        }
+        engine.set_step(3, "Observing Application Form")
+        controller = ApplicationController(page, parser, resolver, executor, log=engine.log)
+        engine.set_step(4, "Resolving New Fields")
+        plan, combined_results = controller.run(profile, job_meta)
+        engine.plan = plan
         engine.execution_results = combined_results
+        all_questions_to_review = plan.questions_to_review
+        engine.set_step(5, "Review Verified Fields")
 
         # Capture preview screenshot
         page.screenshot(path=SCREENSHOT_PATH)
-        engine.log("Autofill complete! Halting for human verification.")
+        engine.log("Autofill paused for review: " + plan.summary)
 
         engine.state = "review"
         if engine.loop:
