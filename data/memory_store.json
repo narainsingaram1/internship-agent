@@ -47,5 +47,61 @@
     "source": "ai_generated",
     "times_used": 1,
     "updated_at": "2026-10-13T14:04:51.252110"
+  },
+  "educationlevel": {
+    "question": "education_level",
+    "answer": "Bachelors",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:16:36.751753"
+  },
+  "gender": {
+    "question": "gender",
+    "answer": "Prefer not to say",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:16:36.752180"
+  },
+  "programminglanguages": {
+    "question": "programming_languages",
+    "answer": "Python (fully proficient), TypeScript (fully proficient), Go (fully proficient), Java (fully proficient), SQL (fully proficient)",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:16:36.752423"
+  },
+  "positionsresponsibilityaccomplishments": {
+    "question": "positions_responsibility_accomplishments",
+    "answer": "I designed and built an open-source real-time analytics engine processing 15,000 events/sec with FastAPI and Redis, reducing query latencies by 40%. This project honed my ability to debug complex systems and optimize performance under tight constraints. I am eager to apply this systems-focused mindset to Capula's trading and research initiatives.",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:16:36.752623"
+  },
+  "referralname": {
+    "question": "referral_name",
+    "answer": "Not referred",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:16:36.752774"
+  },
+  "shortessaywhycapula": {
+    "question": "short_essay_why_capula",
+    "answer": "Having built an open-source real-time analytics engine processing 15,000 events/sec with FastAPI and Redis, I've developed a strong interest in low-latency, data-intensive systems. Capula's quantitative research and trading infrastructure aligns with my passion for building high-performance, resilient software. I am eager to contribute my debugging acumen and fast learning curve to your team's research challenges.",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:16:36.752916"
+  },
+  "qa11628457": {
+    "question": "QA_11628457",
+    "answer": "I am drawn to Capula\u2019s systematic trading approach because it combines rigorous research with robust engineering\u2014exactly the environment where I can apply my experience building low\u2011latency analytics pipelines and my passion for clean, reliable code. Through projects like a real\u2011time analytics engine processing 15k events/sec with FastAPI and Redis, I have honed skills in Python, TypeScript, and performance optimization that I would bring to developing trading signals and research tools. My strong debugging ability and fast learning curve enable me to quickly contribute to Capula\u2019s trading strategies while learning from the team\u2019s expertise.",
+    "source": "ai_generated",
+    "times_used": 4,
+    "updated_at": "2026-10-13T14:56:58.736349"
+  },
+  "qa11628458": {
+    "question": "QA_11628458",
+    "answer": "I have not managed a personal or family portfolio or traded on a brokerage platform. However, I have worked extensively with quantitative data analysis and algorithmic trading concepts through coursework and personal projects, such as building a real\u2011time analytics engine that processes high\u2011frequency event streams.",
+    "source": "ai_generated",
+    "times_used": 4,
+    "updated_at": "2026-10-13T14:56:58.736682"
   }
 }

@@ -115,7 +115,7 @@ class GenericParser(BaseParser):
         self.ensure_application_view(page)
         self.dismiss_overlays(page)
 
-        raw_fields = page.evaluate("""() => {
+        raw_fields = page.evaluate(r"""() => {
             const results = [];
             
             function processDocument(doc, prefix = '') {
@@ -134,7 +134,17 @@ class GenericParser(BaseParser):
 
                     // Find label
                     let labelText = '';
-                    if (el.id) {
+                    const ariaLabelledBy = el.getAttribute('aria-labelledby');
+                    if (ariaLabelledBy) {
+                        const lblEl = doc.getElementById(ariaLabelledBy);
+                        if (lblEl && lblEl.innerText.trim()) {
+                            labelText = lblEl.innerText.trim();
+                        }
+                    }
+                    if (!labelText && el.getAttribute('aria-label')) {
+                        labelText = el.getAttribute('aria-label').trim();
+                    }
+                    if (!labelText && el.id) {
                         const labelEl = doc.querySelector(`label[for="${el.id}"]`);
                         if (labelEl) labelText = labelEl.innerText;
                     }
@@ -148,9 +158,41 @@ class GenericParser(BaseParser):
                             labelText = prev.innerText;
                         }
                     }
-                    if (!labelText) {
-                        labelText = el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
+
+                    // Check group container for fieldsets / questions
+                    let groupTitle = '';
+                    let curr = el.parentElement;
+                    while (curr && curr.tagName !== 'FORM' && curr.tagName !== 'BODY') {
+                        const headings = curr.querySelectorAll('legend, strong, h3, h4, [data-ui*="label"], [class*="label"], [data-ui*="title"]');
+                        for (let h of headings) {
+                            let txt = h.innerText.replace(/[\n\r]+/g, ' ').trim();
+                            if (txt && txt !== '*' && txt !== '•' && txt.length > 2) {
+                                groupTitle = txt;
+                                break;
+                            }
+                        }
+                        if (groupTitle) break;
+                        curr = curr.parentElement;
                     }
+
+                    let optionText = '';
+                    if (el.type === 'radio' || el.type === 'checkbox') {
+                        const lbl = (el.id ? doc.querySelector(`label[for="${el.id}"]`) : null) || el.closest('label');
+                        if (lbl) optionText = lbl.innerText.replace(/[\n\r]+/g, ' ').trim();
+                    }
+
+                    let finalLabel = labelText;
+                    if (el.type === 'radio' || el.type === 'checkbox') {
+                        if (groupTitle && optionText) {
+                            finalLabel = `${groupTitle} -> Option: ${optionText}`;
+                        } else {
+                            finalLabel = optionText || groupTitle || finalLabel;
+                        }
+                    } else if (!finalLabel || finalLabel.toLowerCase().includes('select an option')) {
+                        finalLabel = groupTitle || el.placeholder || el.name || el.id || '';
+                    }
+
+                    finalLabel = finalLabel.replace(/[\n\r]+/g, ' ').replace(/^\*\s*/, '').trim();
 
                     let options = [];
                     if (el.tagName.toLowerCase() === 'select') {
@@ -175,7 +217,7 @@ class GenericParser(BaseParser):
                         name: el.name || '',
                         type: el.type || el.tagName.toLowerCase(),
                         tag: el.tagName.toLowerCase(),
-                        label: labelText.replace(/\\*|\\n/g, ' ').trim(),
+                        label: finalLabel,
                         placeholder: el.placeholder || '',
                         required: el.required || el.getAttribute('aria-required') === 'true',
                         options: options

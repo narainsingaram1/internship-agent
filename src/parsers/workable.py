@@ -86,7 +86,7 @@ class WorkableParser(BaseParser):
         except Exception:
             pass
 
-        raw_fields = page.evaluate("""() => {
+        raw_fields = page.evaluate(r"""() => {
             const results = [];
             const inputs = document.querySelectorAll('input, select, textarea');
 
@@ -96,29 +96,86 @@ class WorkableParser(BaseParser):
                 const name = el.name || '';
                 const id = el.id || '';
                 const dataUi = el.getAttribute('data-ui') || '';
+                const ariaLabel = el.getAttribute('aria-label') || '';
+                const ariaLabelledBy = el.getAttribute('aria-labelledby') || '';
 
-                // Label resolution
-                let labelText = '';
-                if (id) {
-                    const lbl = document.querySelector(`label[for="${id}"]`);
-                    if (lbl) labelText = lbl.innerText;
+                // Ignore redundant non-id inputs that duplicate interactive comboboxes
+                if (!id && name && document.querySelector(`input[id*="${name}"]`)) {
+                    return;
                 }
-                if (!labelText) {
-                    const parentSection = el.closest('[data-ui*="section"], [data-ui*="question"], div[class*="styles--"], .form-group');
-                    if (parentSection) {
-                        const lbl = parentSection.querySelector('label, h3, h4, span[class*="label"], span[class*="styles--"]');
-                        if (lbl) labelText = lbl.innerText;
+
+                let labelText = '';
+
+                // 1. Check aria-labelledby
+                if (ariaLabelledBy) {
+                    const lblEl = document.getElementById(ariaLabelledBy);
+                    if (lblEl && lblEl.innerText.trim()) {
+                        labelText = lblEl.innerText.trim();
                     }
                 }
-                if (!labelText) {
-                    const parentLabel = el.closest('label');
-                    if (parentLabel) labelText = parentLabel.innerText;
-                }
-                if (!labelText) {
-                    labelText = el.placeholder || dataUi || name || id || '';
+
+                // 2. Check aria-label
+                if (!labelText && ariaLabel) {
+                    labelText = ariaLabel.trim();
                 }
 
-                labelText = labelText.replace(/\\*|\\n/g, ' ').trim();
+                // 3. Check label[for="id"]
+                if (!labelText && id) {
+                    const lbl = document.querySelector(`label[for="${id}"]`);
+                    if (lbl && lbl.innerText.trim()) {
+                        labelText = lbl.innerText.trim();
+                    }
+                }
+
+                // 4. Check closest label
+                if (!labelText) {
+                    const parentLabel = el.closest('label');
+                    if (parentLabel && parentLabel.innerText.trim()) {
+                        labelText = parentLabel.innerText.trim();
+                    }
+                }
+
+                // 5. Check parent question/field container
+                let groupTitle = '';
+                let curr = el.parentElement;
+                while (curr && curr.tagName !== 'FORM' && curr.tagName !== 'BODY') {
+                    const strongs = curr.querySelectorAll('strong, h3, h4, legend, [data-ui*="label"], [class*="label"], [data-ui*="title"]');
+                    for (let s of strongs) {
+                        let txt = s.innerText.replace(/[\n\r]+/g, ' ').trim();
+                        if (txt && txt !== '*' && txt !== '•' && txt.length > 2) {
+                            groupTitle = txt;
+                            break;
+                        }
+                    }
+                    if (groupTitle) break;
+                    curr = curr.parentElement;
+                }
+
+                // If this is a radio or checkbox, distinguish between group question and option
+                let optionText = '';
+                if (el.type === 'radio' || el.type === 'checkbox') {
+                    const lbl = (id ? document.querySelector(`label[for="${id}"]`) : null) || el.closest('label');
+                    if (lbl) {
+                        optionText = lbl.innerText.replace(/[\n\r]+/g, ' ').trim();
+                    }
+                }
+
+                // Standard field name overrides (avoid parent personal info section overwriting city/country/zip)
+                const standardKey = (id || name || el.placeholder || '').toLowerCase();
+                let finalLabel = labelText;
+                if (['city', 'postcode', 'postal', 'zip', 'zipcode', 'country', 'phone'].includes(standardKey)) {
+                    finalLabel = standardKey.charAt(0).toUpperCase() + standardKey.slice(1);
+                } else if (el.type === 'radio' || el.type === 'checkbox') {
+                    if (groupTitle && optionText) {
+                        finalLabel = `${groupTitle} -> Option: ${optionText}`;
+                    } else {
+                        finalLabel = optionText || groupTitle || finalLabel;
+                    }
+                } else if (!finalLabel || finalLabel === 'Select an option…') {
+                    finalLabel = groupTitle || el.placeholder || name || id || '';
+                }
+
+                finalLabel = finalLabel.replace(/[\n\r]+/g, ' ').replace(/^\*\s*/, '').trim();
 
                 let selector = '';
                 if (id) {
@@ -145,7 +202,9 @@ class WorkableParser(BaseParser):
                     name: name,
                     type: el.type || el.tagName.toLowerCase(),
                     tag: el.tagName.toLowerCase(),
-                    label: labelText,
+                    label: finalLabel,
+                    group_title: groupTitle,
+                    option_text: optionText,
                     data_ui: dataUi,
                     placeholder: el.placeholder || '',
                     required: el.required || false,

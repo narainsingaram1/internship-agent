@@ -19,7 +19,7 @@ class FormFillPlan(BaseModel):
     questions_to_review: List[str] = Field(
         default_factory=list, description="Names of questions requiring human review (confidence < 0.85 or essay answers)"
     )
-    summary: str = Field(..., description="Short summary of what was matched vs skipped")
+    summary: Optional[str] = Field(default="", description="Short summary of what was matched vs skipped")
 
 
 class ScreeningAnswer(BaseModel):

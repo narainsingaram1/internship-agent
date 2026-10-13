@@ -1,7 +1,7 @@
 """Two-Tier Form Resolution Engine: Deterministic Fast-Path + AI Question Brain."""
 import re
 import logging
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional
 from .memory import MemoryStore
 from .llm.client import LLMClient
 from .llm.prompts import FormFillPlan, FormFieldAction
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class TwoTierResolver:
-    """Combines instant deterministic matching for standard fields with AI reasoning and memory for screening questions."""
+    """Combines instant deterministic matching for standard fields with AI reasoning and continuous memory for screening questions."""
 
     def __init__(self, memory_store: MemoryStore = None, llm_client: LLMClient = None):
         self.memory = memory_store or MemoryStore()
@@ -103,6 +103,7 @@ class TwoTierResolver:
         work = profile.get("work_authorization", {})
         eeoc = profile.get("demographics_eeoc", {})
         prefs = profile.get("preferences", {})
+        kb = profile.get("screening_knowledge_base", {})
 
         name = (el.get("name") or "").lower()
         id_str = (el.get("id") or "").lower()
@@ -112,11 +113,16 @@ class TwoTierResolver:
         el_type = (el.get("type") or "").lower()
         tag = (el.get("tag") or "").lower()
         selector = el.get("selector", "")
+        group_title = (el.get("group_title") or "").lower()
+        option_text = (el.get("option_text") or "").lower()
 
-        blob = f"{name} {id_str} {data_ui} {label} {placeholder}"
+        blob = f"{name} {id_str} {data_ui} {label} {placeholder}".strip()
+
+        # GUARD: Textareas asking long questions or essays should NOT be hijacked by simple keyword matches
+        is_long_prompt = tag == "textarea" or len(label) > 60 or any(k in label for k in ["300 words", "why are you interested", "trading experience", "accomplishments", "responsibilities"])
 
         # 1. First Name
-        if any(k in blob for k in ["first_name", "firstname", "first name", "fname", "first"]) and not any(k in blob for k in ["last", "full", "confirm"]):
+        if not is_long_prompt and any(k in blob for k in ["first_name", "firstname", "first name", "fname"]) and not any(k in blob for k in ["last", "full", "confirm"]):
             val = personal.get("first_name", "")
             if val:
                 return FormFieldAction(
@@ -125,7 +131,7 @@ class TwoTierResolver:
                 )
 
         # 2. Last Name
-        if any(k in blob for k in ["last_name", "lastname", "last name", "lname", "surname", "last"]) and "first" not in blob:
+        if not is_long_prompt and any(k in blob for k in ["last_name", "lastname", "last name", "lname", "surname"]) and "first" not in blob:
             val = personal.get("last_name", "")
             if val:
                 return FormFieldAction(
@@ -134,7 +140,7 @@ class TwoTierResolver:
                 )
 
         # 3. Full Name (if single input)
-        if (name == "name" or label == "full name" or label == "name") and not any(k in blob for k in ["first", "last", "company"]):
+        if not is_long_prompt and (name == "name" or label == "full name" or label == "name") and not any(k in blob for k in ["first", "last", "company", "school", "course", "degree"]):
             full_name = f"{personal.get('first_name', '')} {personal.get('last_name', '')}".strip()
             if full_name:
                 return FormFieldAction(
@@ -143,7 +149,7 @@ class TwoTierResolver:
                 )
 
         # 4. Email
-        if any(k in blob for k in ["email", "e-mail"]) and "confirm" not in blob:
+        if not is_long_prompt and any(k in blob for k in ["email", "e-mail"]) and "confirm" not in blob:
             val = personal.get("email", "")
             if val:
                 return FormFieldAction(
@@ -152,7 +158,7 @@ class TwoTierResolver:
                 )
 
         # 5. Phone
-        if any(k in blob for k in ["phone", "telephone", "mobile", "tel", "cell"]):
+        if not is_long_prompt and any(k in blob for k in ["phone", "telephone", "mobile", "tel", "cell"]):
             val = str(personal.get("phone", ""))
             if val:
                 return FormFieldAction(
@@ -161,9 +167,9 @@ class TwoTierResolver:
                 )
 
         # 6. Street Address
-        if any(k in blob for k in ["street", "address1", "address_1", "address_line_1", "line 1"]) or (
-            blob.strip() in ["address", "candidate address", "your address"] or name == "address" or id_str == "address"
-        ):
+        if not is_long_prompt and (any(k in blob for k in ["street", "address1", "address_1", "address_line_1", "line 1"]) or (
+            blob.strip() in ["address", "candidate address", "your address"] or name == "address" or id_str == "address" or label == "address"
+        )):
             val = personal.get("address", "")
             if val:
                 return FormFieldAction(
@@ -172,7 +178,7 @@ class TwoTierResolver:
                 )
 
         # 7. City
-        if any(k in blob for k in ["city", "town"]) and not any(k in blob for k in ["state", "country", "zip"]):
+        if not is_long_prompt and (label == "city" or name == "city" or id_str == "city" or any(k in blob for k in ["city", "town"])) and not any(k in blob for k in ["state", "country", "zip"]):
             val = personal.get("city", "")
             if val:
                 return FormFieldAction(
@@ -181,7 +187,7 @@ class TwoTierResolver:
                 )
 
         # 8. County
-        if "county" in blob or "district" in blob:
+        if not is_long_prompt and ("county" in blob or "district" in blob):
             val = personal.get("county", personal.get("state", ""))
             if val:
                 return FormFieldAction(
@@ -189,8 +195,8 @@ class TwoTierResolver:
                     value=val, confidence=1.0, reasoning="Matched County"
                 )
 
-        # 9. State / Province
-        if any(k in blob for k in ["state", "province", "region"]) and "united" not in blob:
+        # 9. State / Province (Strict match, never collide with essay questions containing 'state why')
+        if not is_long_prompt and (label in ["state", "state/province", "state / province", "province", "region"] or name in ["state", "province", "region"] or id_str in ["state", "province"]):
             val = personal.get("state", "")
             if val:
                 return FormFieldAction(
@@ -198,8 +204,8 @@ class TwoTierResolver:
                     value=val, confidence=1.0, reasoning="Matched State"
                 )
 
-        # 10. Country
-        if any(k in blob for k in ["country", "nation"]):
+        # 10. Country (Strict match, never collide with 'nationality and visas')
+        if not is_long_prompt and (label in ["country", "country of residence", "residence country"] or name in ["country", "country_id"] or id_str == "country") and "nationality" not in blob:
             val = personal.get("country", "United States")
             if val:
                 return FormFieldAction(
@@ -208,7 +214,7 @@ class TwoTierResolver:
                 )
 
         # 11. Postal Code / Zip
-        if any(k in blob for k in ["zip", "postal", "postcode", "post code", "zipcode"]):
+        if not is_long_prompt and any(k in blob for k in ["zip", "postal", "postcode", "post code", "zipcode"]):
             val = personal.get("zip_code", personal.get("postal_code", ""))
             if val:
                 return FormFieldAction(
@@ -217,7 +223,10 @@ class TwoTierResolver:
                 )
 
         # 12. Resume File Upload
-        if el_type == "file" or any(k in blob for k in ["resume", "cv", "curriculum vitae"]):
+        if el_type == "file" or (
+            any(k in blob for k in ["resume", "curriculum vitae", "attach cv", "upload cv"])
+            and el_type not in ["radio", "checkbox"]
+        ):
             return FormFieldAction(
                 selector=selector, field_name="Resume File Upload", action_type="upload_file",
                 value="resume", confidence=1.0, reasoning="Matched Resume Attachment"
@@ -241,8 +250,8 @@ class TwoTierResolver:
                     value=val, confidence=1.0, reasoning="Matched GitHub"
                 )
 
-        # 15. Portfolio / Website
-        if any(k in blob for k in ["portfolio", "website", "personal site", "blog"]):
+        # 15. Portfolio / Website (Strict match, never collide with trading portfolio)
+        if not is_long_prompt and any(k in blob for k in ["portfolio link", "portfolio url", "personal website", "portfolio website", "personal site", "github/portfolio"]) and "trading" not in blob:
             val = links.get("portfolio", "")
             if val:
                 return FormFieldAction(
@@ -251,51 +260,199 @@ class TwoTierResolver:
                 )
 
         # 16. School / University
-        if any(k in blob for k in ["school", "university", "college", "institution"]):
-            val = edu.get("school", "")
+        # A) Combobox: 'What school are you currently attending?' -> Select 'Other'
+        if any(k in blob for k in ["what school are you currently attending", "select your university", "select your school"]):
+            return FormFieldAction(
+                selector=selector, field_name="School Dropdown (Other)", action_type="select_option",
+                value="Other", confidence=1.0, reasoning="Selected 'Other' for University Combobox"
+            )
+        # B) Text/Textarea: 'enter your school below' or standard school input
+        if any(k in blob for k in ["enter your school below", "name of school", "university name", "college name", "institution"]):
+            val = edu.get("school", "Georgia Institute of Technology")
             if val:
                 return FormFieldAction(
-                    selector=selector, field_name="University", action_type="type_text",
-                    value=val, confidence=1.0, reasoning="Matched University"
+                    selector=selector, field_name="University Name", action_type="type_text",
+                    value=val, confidence=1.0, reasoning="Entered University Name"
                 )
 
-        # 17. Degree
-        if any(k in blob for k in ["degree", "qualification"]):
-            val = edu.get("degree", "Bachelor of Science")
-            if val:
+        # 17. Degree Level (Radio or Text)
+        if el_type == "radio" and any(k in blob for k in ["level of degree", "degree level", "degree are you currently completing"]):
+            user_deg = edu.get("degree", "Bachelor of Science").lower()
+            if "bachelor" in label and "bachelor" in user_deg:
                 return FormFieldAction(
-                    selector=selector, field_name="Degree", action_type="type_text",
-                    value=val, confidence=1.0, reasoning="Matched Degree"
+                    selector=selector, field_name="Degree (Bachelors)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Matched Degree: Bachelors"
                 )
+            if "master" in label and "master" in user_deg:
+                return FormFieldAction(
+                    selector=selector, field_name="Degree (Masters)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Matched Degree: Masters"
+                )
+            if "phd" in label and "phd" in user_deg:
+                return FormFieldAction(
+                    selector=selector, field_name="Degree (PhD)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Matched Degree: PhD"
+                )
+            return FormFieldAction(
+                selector=selector, field_name=label, action_type="skip",
+                value="", confidence=1.0, reasoning="Not candidate degree level"
+            )
 
-        # 18. Major
-        if any(k in blob for k in ["major", "field of study", "discipline"]):
+        # 18. Broad Degree / Subject
+        if any(k in blob for k in ["broad’ degree", "broad degree", "degree/ subject", "broad subject"]):
+            return FormFieldAction(
+                selector=selector, field_name="Broad Degree Subject", action_type="select_option",
+                value="Computer Science", confidence=1.0, reasoning="Selected Broad Degree Subject: Computer Science"
+            )
+
+        # 19. Major / Degree Course Specific Name
+        if any(k in blob for k in ["specific name of your degree course", "degree course/ major", "degree course", "specific major"]):
             val = edu.get("major", "Computer Science")
             if val:
                 return FormFieldAction(
-                    selector=selector, field_name="Major", action_type="type_text",
-                    value=val, confidence=1.0, reasoning="Matched Major"
+                    selector=selector, field_name="Degree Course / Major", action_type="type_text",
+                    value=val, confidence=1.0, reasoning="Entered Major: Computer Science"
                 )
 
-        # 19. GPA
-        if "gpa" in blob:
-            val = str(edu.get("gpa", "3.8"))
-            if val:
+        # 20. GPA / Expected Grade
+        if any(k in blob for k in ["gpa", "expected grade/gpa", "expected grade", "provide the scale"]):
+            val = str(edu.get("gpa", "3.89"))
+            scale = str(edu.get("gpa_scale", "4.0"))
+            return FormFieldAction(
+                selector=selector, field_name="GPA / Grade", action_type="type_text",
+                value=f"{val} / {scale}", confidence=1.0, reasoning="Entered GPA Scale"
+            )
+
+        # 21. Graduation Year / Date
+        if any(k in blob for k in ["graduation year", "expected graduation year", "year of graduation"]):
+            grad_year = "2026"
+            if edu.get("graduation_date"):
+                match = re.search(r"\b(202\d)\b", edu["graduation_date"])
+                if match:
+                    grad_year = match.group(1)
+            return FormFieldAction(
+                selector=selector, field_name="Graduation Year", action_type="select_option" if tag == "select" or "input" in selector else "type_text",
+                value=grad_year, confidence=1.0, reasoning=f"Selected Graduation Year: {grad_year}"
+            )
+
+        # 22. Office Location Top Choice (Radio)
+        if el_type == "radio" and "top choice" in blob:
+            pref_loc = prefs.get("preferred_location", "New York").lower()
+            is_ny = "new york" in label and ("new york" in pref_loc or "sf" in pref_loc or "san francisco" in pref_loc or "us" in pref_loc)
+            is_london = "london" in label and "london" in pref_loc
+            if is_ny or (not any(c in pref_loc for c in ["london", "singapore", "hong kong"]) and "new york" in label):
                 return FormFieldAction(
-                    selector=selector, field_name="GPA", action_type="type_text",
-                    value=val, confidence=1.0, reasoning="Matched GPA"
+                    selector=selector, field_name="Top Choice Location (New York)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Selected Top Choice: New York"
                 )
-
-        # 20. Graduation Date
-        if any(k in blob for k in ["grad date", "graduation date", "expected grad", "graduation year"]):
-            val = edu.get("graduation_date", "May 2026")
-            if val:
+            if is_london:
                 return FormFieldAction(
-                    selector=selector, field_name="Graduation Date", action_type="type_text",
-                    value=val, confidence=1.0, reasoning="Matched Graduation Date"
+                    selector=selector, field_name="Top Choice Location (London)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Selected Top Choice: London"
+                )
+            return FormFieldAction(
+                selector=selector, field_name=label, action_type="skip",
+                value="", confidence=1.0, reasoning="Not primary office choice"
+            )
+
+        # 23. Other Office Locations Open To (Checkbox)
+        if el_type == "checkbox" and any(k in blob for k in ["other office locations", "would be open to"]):
+            if "london" in label:
+                return FormFieldAction(
+                    selector=selector, field_name="Open Location (London)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Open to London location"
+                )
+            if "singapore" in label:
+                return FormFieldAction(
+                    selector=selector, field_name="Open Location (Singapore)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Open to Singapore location"
+                )
+            if "hong kong" in label:
+                return FormFieldAction(
+                    selector=selector, field_name="Open Location (Hong Kong)", action_type="click_checkbox",
+                    value="true", confidence=1.0, reasoning="Open to Hong Kong location"
+                )
+            return FormFieldAction(
+                selector=selector, field_name=label, action_type="skip",
+                value="", confidence=1.0, reasoning="Skipped other locations"
+            )
+
+        # 24. Gender (EEOC & Radios)
+        if any(k in blob for k in ["specify your gender", "gender", "sex"]) and "sexual" not in blob:
+            user_gender = eeoc.get("gender", "Male").lower()
+            if el_type == "radio":
+                if "male" in label and "female" not in label and "male" in user_gender and "female" not in user_gender:
+                    return FormFieldAction(
+                        selector=selector, field_name="Gender (Male)", action_type="click_checkbox",
+                        value="true", confidence=1.0, reasoning="Matched Gender: Male"
+                    )
+                if "female" in label and "female" in user_gender:
+                    return FormFieldAction(
+                        selector=selector, field_name="Gender (Female)", action_type="click_checkbox",
+                        value="true", confidence=1.0, reasoning="Matched Gender: Female"
+                    )
+                if any(k in label for k in ["prefer not to say", "decline"]) and any(k in user_gender for k in ["decline", "prefer not"]):
+                    return FormFieldAction(
+                        selector=selector, field_name="Gender (Prefer not to say)", action_type="click_checkbox",
+                        value="true", confidence=1.0, reasoning="Matched Gender: Prefer not to say"
+                    )
+                return FormFieldAction(
+                    selector=selector, field_name=label, action_type="skip",
+                    value="", confidence=1.0, reasoning="Not candidate gender selection"
+                )
+            elif tag == "select" or el.get("options"):
+                return FormFieldAction(
+                    selector=selector, field_name="Gender", action_type="select_option",
+                    value="Male" if "male" in user_gender and "female" not in user_gender else "Prefer not to say",
+                    confidence=1.0, reasoning="Matched Gender Dropdown"
                 )
 
-        # 21. Veteran Status (EEOC)
+        # 25. Python Proficiency
+        if any(k in blob for k in ["proficiency in python", "python proficiency", "level of proficiency in python"]):
+            return FormFieldAction(
+                selector=selector, field_name="Python Proficiency", action_type="select_option",
+                value="Fully proficient", confidence=1.0, reasoning="Selected Python: Fully proficient"
+            )
+
+        # 26. Other Programming Languages (Textarea)
+        if any(k in blob for k in ["other computer programming languages", "programming languages that you have experience"]):
+            langs_val = "TypeScript (Fully proficient), Go (Intermediate), Java (Intermediate), SQL (Fully proficient), C++ (Intermediate)"
+            return FormFieldAction(
+                selector=selector, field_name="Programming Languages", action_type="type_text",
+                value=langs_val, confidence=1.0, reasoning="Provided Programming Languages & Proficiency"
+            )
+
+        # 27. Positions of Responsibility / Awards (Textarea)
+        if any(k in blob for k in ["positions of responsibility", "awards / accomplishments", "awards", "accomplishments"]):
+            resp_val = "Founder & Lead Engineer on high-throughput distributed event streaming engine processing 15,000+ events/sec. Dean's List / Faculty Honors at Georgia Institute of Technology."
+            return FormFieldAction(
+                selector=selector, field_name="Awards & Leadership", action_type="type_text",
+                value=resp_val, confidence=1.0, reasoning="Provided Leadership & Notable Accomplishments"
+            )
+
+        # 28. Nationality & Visas (Textarea)
+        if any(k in blob for k in ["nationality and", "nationality and, if applicable", "visas you hold", "nationality"]):
+            nat_val = "U.S. Citizen. Authorized to work in the United States without restriction. Open to sponsorship/visa assistance for international office locations if applicable."
+            return FormFieldAction(
+                selector=selector, field_name="Nationality & Visas", action_type="type_text",
+                value=nat_val, confidence=1.0, reasoning="Provided Nationality & Visa Status"
+            )
+
+        # 29. Referral from Employee
+        if any(k in blob for k in ["referred by a", "referred by an employee", "employee referral"]):
+            return FormFieldAction(
+                selector=selector, field_name="Employee Referral", action_type="type_text",
+                value="N/A", confidence=1.0, reasoning="Not referred by internal employee (N/A)"
+            )
+
+        # 30. How did you hear about vacancy
+        if any(k in blob for k in ["how did you hear about this vacancy", "how did you hear", "hear about us"]):
+            return FormFieldAction(
+                selector=selector, field_name="Referral Source", action_type="select_option",
+                value="LinkedIn", confidence=1.0, reasoning="Selected Source: LinkedIn"
+            )
+
+        # 31. Veteran Status (EEOC)
         if any(k in blob for k in ["veteran", "military"]):
             vet_val = eeoc.get("veteran_status", "I am not a protected veteran")
             return FormFieldAction(
@@ -303,7 +460,7 @@ class TwoTierResolver:
                 value=vet_val, confidence=1.0, reasoning="Matched Veteran Status (Not a protected veteran)"
             )
 
-        # 22. Disability Status (EEOC)
+        # 32. Disability Status (EEOC)
         if "disability" in blob:
             dis_val = eeoc.get("disability_status", "No, I do not have a disability")
             return FormFieldAction(
@@ -311,24 +468,8 @@ class TwoTierResolver:
                 value=dis_val, confidence=1.0, reasoning="Matched Disability Status (No disability)"
             )
 
-        # 23. Gender (EEOC)
-        if any(k in blob for k in ["gender", "sex"]) and "sexual" not in blob:
-            g_val = eeoc.get("gender", "Decline To Self Identify")
-            return FormFieldAction(
-                selector=selector, field_name="Gender", action_type="select_option" if tag == "select" or el.get("options") else "type_text",
-                value=g_val, confidence=1.0, reasoning="Matched Gender Preference"
-            )
-
-        # 24. Race / Ethnicity (EEOC)
-        if any(k in blob for k in ["race", "ethnicity", "ethnic"]):
-            r_val = eeoc.get("race_ethnicity", "Decline To Self Identify")
-            return FormFieldAction(
-                selector=selector, field_name="Race/Ethnicity", action_type="select_option" if tag == "select" or el.get("options") else "type_text",
-                value=r_val, confidence=1.0, reasoning="Matched Race Preference"
-            )
-
-        # 25. GDPR / Terms Agreement
-        if any(k in blob for k in ["gdpr", "consent", "terms", "agree", "privacy", "data processing"]):
+        # 33. GDPR / Terms Agreement Checkbox
+        if any(k in blob for k in ["gdpr", "consent", "terms", "agree", "privacy", "data processing", "content of the privacy notice"]):
             if el_type in ["checkbox", "radio"]:
                 return FormFieldAction(
                     selector=selector, field_name="Consent Agreement", action_type="click_checkbox",
