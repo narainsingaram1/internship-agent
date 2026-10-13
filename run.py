@@ -8,7 +8,7 @@ from rich.console import Console
 
 from src.browser import BrowserSession
 from src.detector import ATSDetector
-from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, GenericParser
+from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, WorkableParser, GenericParser
 from src.llm import LLMClient
 from src.executor import FormExecutor
 from src.cli import HITLReviewer
@@ -87,6 +87,8 @@ def main():
             parser = WorkdayParser()
         elif platform == "icims":
             parser = ICIMSParser()
+        elif platform == "workable":
+            parser = WorkableParser()
         else:
             parser = GenericParser()
 

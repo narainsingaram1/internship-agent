@@ -3,6 +3,7 @@ from .greenhouse import GreenhouseParser
 from .lever import LeverParser
 from .workday import WorkdayParser
 from .icims import ICIMSParser
+from .workable import WorkableParser
 from .generic import GenericParser
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "LeverParser",
     "WorkdayParser",
     "ICIMSParser",
+    "WorkableParser",
     "GenericParser",
 ]

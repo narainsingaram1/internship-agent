@@ -23,7 +23,7 @@ if ROOT_DIR not in sys.path:
 
 from src.browser import BrowserSession
 from src.detector import ATSDetector
-from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, GenericParser
+from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, WorkableParser, GenericParser
 from src.llm import LLMClient
 from src.executor import FormExecutor
 from src.tracker import ApplicationTracker
@@ -177,6 +177,8 @@ def run_autofill_worker(target_url: str, headed: bool):
             parser = WorkdayParser()
         elif platform == "icims":
             parser = ICIMSParser()
+        elif platform == "workable":
+            parser = WorkableParser()
         else:
             parser = GenericParser()
 

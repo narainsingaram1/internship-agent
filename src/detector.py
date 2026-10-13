@@ -15,7 +15,15 @@ class ATSDetector:
         path = parsed.path.lower()
         meta = {"url": url, "platform": "generic", "company": "", "title": ""}
 
-        # 1. Workday (e.g. *.myworkdayjobs.com, wd1.myworkdaysite.com, etc.)
+        # 1. Workable (apply.workable.com, workable.com)
+        if "workable.com" in domain or "workable" in domain:
+            meta["platform"] = "workable"
+            parts = [p for p in path.split("/") if p]
+            if parts:
+                meta["company"] = parts[0].replace("-", " ").capitalize()
+            return "workable", meta
+
+        # 2. Workday (e.g. *.myworkdayjobs.com, wd1.myworkdaysite.com, etc.)
         if "myworkdayjobs.com" in domain or "myworkdaysite.com" in domain or "workday" in domain:
             meta["platform"] = "workday"
             subparts = domain.split(".")
