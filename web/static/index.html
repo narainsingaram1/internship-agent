@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoApply AI — Minimalist Internship Agent</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            zinc: {
+              950: '#09090b',
+              900: '#121215',
+              850: '#18181b',
+              800: '#27272a',
+              700: '#3f3f46',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans min-h-screen antialiased selection:bg-emerald-500/20 selection:text-emerald-400">
+
+  <!-- TOP NAVIGATION -->
+  <header class="border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-mono font-bold text-sm">
+          ⚡
+        </div>
+        <div>
+          <span class="font-semibold tracking-tight text-white text-base">AutoApply</span>
+          <span class="text-xs text-zinc-500 font-mono ml-1.5 px-2 py-0.5 rounded-full border border-zinc-800 bg-zinc-900">agent v2</span>
+        </div>
+      </div>
+
+      <!-- Engine Badges & Controls -->
+      <div class="flex items-center space-x-3">
+        <div class="hidden sm:flex items-center space-x-2 text-xs font-mono text-zinc-400 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/60">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="modelBadge">gemini-2.0-flash-exp:free</span>
+          <span class="text-emerald-400 font-semibold">$0.00</span>
+        </div>
+
+        <button onclick="openModal('profileModal')" class="text-xs font-medium text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800/60 transition flex items-center space-x-1.5">
+          <i data-lucide="user" class="w-3.5 h-3.5"></i>
+          <span>Profile</span>
+        </button>
+
+        <button onclick="openModal('historyModal')" class="text-xs font-medium text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800/60 transition flex items-center space-x-1.5">
+          <i data-lucide="history" class="w-3.5 h-3.5"></i>
+          <span>History</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-5xl mx-auto px-6 py-10 space-y-8">
+
+    <!-- HERO OMNIBAR -->
+    <section class="space-y-4">
+      <div class="text-center space-y-1">
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Automate Any Internship Application</h1>
+        <p class="text-sm text-zinc-400">Paste the job link below. The agent parses the form, autofills your profile, and halts for review.</p>
+      </div>
+
+      <!-- The Input Bar -->
+      <div class="relative bg-zinc-900/70 border border-zinc-800 rounded-2xl p-2.5 shadow-2xl focus-within:border-emerald-500/50 transition">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div class="flex-1 flex items-center px-3 space-x-3">
+            <i data-lucide="link" class="w-5 h-5 text-zinc-500 flex-shrink-0"></i>
+            <input 
+              type="url" 
+              id="jobUrlInput" 
+              placeholder="https://boards.greenhouse.io/... or https://jobs.lever.co/..." 
+              class="w-full bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none font-mono"
+            />
+          </div>
+
+          <div class="flex items-center space-x-2.5 pl-2 sm:pl-0 border-t sm:border-t-0 border-zinc-800 pt-2 sm:pt-0">
+            <label class="flex items-center space-x-2 text-xs text-zinc-400 select-none cursor-pointer pr-2">
+              <input type="checkbox" id="headedCheckbox" checked class="rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0">
+              <span>Watch Live Browser</span>
+            </label>
+
+            <button 
+              id="startBtn"
+              onclick="startApplication()" 
+              class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-1.5 flex-shrink-0 active:scale-95"
+            >
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Launch Agent</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE PIPELINE STEPPER -->
+    <section id="stepperSection" class="hidden">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+        <div id="step-1" class="step-card">
+          <span class="step-num">1</span>
+          <span>Connect</span>
+        </div>
+        <div id="step-2" class="step-card">
+          <span class="step-num">2</span>
+          <span>Detect ATS</span>
+        </div>
+        <div id="step-3" class="step-card">
+          <span class="step-num">3</span>
+          <span>DOM Extract</span>
+        </div>
+        <div id="step-4" class="step-card">
+          <span class="step-num">4</span>
+          <span>OpenRouter AI</span>
+        </div>
+        <div id="step-5" class="step-card">
+          <span class="step-num">5</span>
+          <span>Autofill</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE TERMINAL LOGS -->
+    <section id="terminalSection" class="hidden space-y-2">
+      <div class="flex items-center justify-between text-xs text-zinc-500 font-mono px-1">
+        <div class="flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+          <span>Real-time Execution Stream</span>
+        </div>
+        <button onclick="clearLogs()" class="hover:text-zinc-300">Clear</button>
+      </div>
+      <div id="logConsole" class="bg-zinc-900/90 border border-zinc-800/80 rounded-xl p-4 font-mono text-xs text-zinc-300 space-y-1.5 max-h-48 overflow-y-auto">
+      </div>
+    </section>
+
+    <!-- VERIFICATION REVIEW PANEL (APPEARS UPON COMPLETION) -->
+    <section id="reviewSection" class="hidden space-y-6">
+      <!-- Target Summary Banner -->
+      <div class="bg-gradient-to-r from-zinc-900 to-zinc-900/60 border border-zinc-800 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2 text-xs font-mono text-emerald-400 mb-1">
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 uppercase" id="reviewPlatform">GREENHOUSE</span>
+            <span class="text-zinc-500">•</span>
+            <span class="text-zinc-400">Autofill Completed</span>
+          </div>
+          <h2 class="text-xl font-bold text-white tracking-tight" id="reviewTitle">Software Engineering Intern</h2>
+          <p class="text-sm text-zinc-400" id="reviewCompany">Stripe Inc.</p>
+        </div>
+
+        <div class="flex items-center space-x-3 w-full sm:w-auto">
+          <button onclick="submitApplication()" class="flex-1 sm:flex-initial px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>Approve & Submit</span>
+          </button>
+
+          <button onclick="abortApplication()" class="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white font-medium text-xs rounded-xl border border-zinc-800 transition">
+            Abort
+          </button>
+        </div>
+      </div>
+
+      <!-- Two-Column Inspector: Fields Table & Live Screenshot -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Field Values Table -->
+        <div class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+              <i data-lucide="list-checks" class="w-4 h-4 text-emerald-400"></i>
+              <span>Mapped Fields (<span id="fieldsCount">0</span>)</span>
+            </h3>
+            <span class="text-xs text-zinc-500 font-mono">100% Grounded</span>
+          </div>
+          <div class="overflow-x-auto max-h-96 overflow-y-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="text-zinc-500 border-b border-zinc-800 uppercase font-mono text-[10px]">
+                <tr>
+                  <th class="pb-2">Field</th>
+                  <th class="pb-2">Filled Value</th>
+                  <th class="pb-2 text-right">Conf.</th>
+                </tr>
+              </thead>
+              <tbody id="fieldsTableBody" class="divide-y divide-zinc-800/50 text-zinc-300">
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Live Screenshot Preview -->
+        <div class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 space-y-4 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+              <i data-lucide="camera" class="w-4 h-4 text-cyan-400"></i>
+              <span>Live Application Screenshot</span>
+            </h3>
+            <a id="screenshotLink" href="/api/screenshot" target="_blank" class="text-xs text-cyan-400 hover:underline">Full Res ↗</a>
+          </div>
+          <div class="flex-1 rounded-xl border border-zinc-800/80 bg-zinc-950 overflow-hidden relative group min-h-[260px] flex items-center justify-center">
+            <img id="screenshotImg" src="/api/screenshot" alt="Application Screenshot" class="w-full h-auto object-cover rounded-lg">
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Questions Review Card -->
+      <div id="questionsReviewCard" class="hidden bg-zinc-900/60 border border-amber-500/20 rounded-2xl p-5 space-y-3">
+        <h4 class="text-xs font-semibold text-amber-400 flex items-center space-x-2 uppercase font-mono">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          <span>Questions Flagged For Review</span>
+        </h4>
+        <ul id="questionsList" class="space-y-1 text-xs text-zinc-300 list-disc list-inside">
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: PROFILE DRAWER -->
+  <div id="profileModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('profileModal')"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-zinc-900 border-l border-zinc-800 p-6 overflow-y-auto space-y-6">
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">Candidate Profile</h2>
+          <p class="text-xs text-zinc-400">Autofill values are read directly from here.</p>
+        </div>
+        <button onclick="closeModal('profileModal')" class="text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-zinc-400 block mb-1">First Name</label>
+            <input type="text" id="profFirstName" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Last Name</label>
+            <input type="text" id="profLastName" class="input-dark">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-zinc-400 block mb-1">Email</label>
+            <input type="email" id="profEmail" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Phone</label>
+            <input type="text" id="profPhone" class="input-dark">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-zinc-400 block mb-1">School</label>
+            <input type="text" id="profSchool" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Major</label>
+            <input type="text" id="profMajor" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">GPA</label>
+            <input type="text" id="profGpa" class="input-dark">
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <label class="text-zinc-400 block">Links</label>
+          <input type="url" id="profLinkedin" placeholder="LinkedIn URL" class="input-dark mb-2">
+          <input type="url" id="profGithub" placeholder="GitHub URL" class="input-dark mb-2">
+          <input type="url" id="profPortfolio" placeholder="Portfolio URL" class="input-dark">
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <label class="text-zinc-400 block">Upload Resume PDF</label>
+          <input type="file" id="resumeFileInput" accept=".pdf" class="text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700">
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-zinc-800 flex justify-end space-x-2">
+        <button onclick="closeModal('profileModal')" class="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white">Cancel</button>
+        <button onclick="saveProfile()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs rounded-xl">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: HISTORY DRAWER -->
+  <div id="historyModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('historyModal')"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-zinc-900 border-l border-zinc-800 p-6 overflow-y-auto space-y-6">
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">Application History</h2>
+          <p class="text-xs text-zinc-400">All submitted & reviewed roles.</p>
+        </div>
+        <button onclick="closeModal('historyModal')" class="text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="historyList" class="space-y-3 text-xs">
+        <p class="text-zinc-500">Loading history...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

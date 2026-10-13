@@ -42,16 +42,19 @@ Open `config/profile.yaml` to update:
 
 ## 🎯 How to Use
 
-### Option 1: Modern Interactive Web App (Recommended 🚀)
-Launch the full web dashboard in your browser:
+### Option 1: Custom Minimalist Web UI (Recommended 🚀)
+Launch the dark-mode web application in your browser:
 ```bash
-./venv/bin/streamlit run app.py
+./venv/bin/python serve.py
 ```
-* **Interactive Dashboard**: Zero HTML coding needed, reactive real-time dashboard.
-* **Paste & Go**: Enter any job link, toggle live browser visibility.
-* **Review Screen**: View live screenshots of filled forms, field tables, and generated short essays.
-* **One-Click Actions**: Approve & Submit, keep browser open for manual tweaking, or abort.
-* **Visual Profile Editor**: Update your candidate details, work authorization, and drag-and-drop your resume PDF without touching YAML.
+* **Vercel / Linear Minimalist Aesthetic**: Deep zinc dark mode, Inter & JetBrains Mono typography, zero clunky widgets.
+* **Omnibar**: Paste any job link and toggle "Watch Live Browser" mode.
+* **Real-time Pipeline & Logs**: Live WebSocket log stream and 5-stage progress indicator.
+* **HITL Verification Panel**: Live high-res application screenshot, field mapping table with confidence badges, and one-click actions:
+  - 🟢 **Approve & Submit**
+  - 🕹️ **Manual Live Browser Edit**
+  - ✕ **Abort & Discard**
+* **Slide-over Profile & History Drawers**: Edit personal info and drag-and-drop resume PDFs directly in the browser.
 
 ---
 

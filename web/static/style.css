@@ -1,0 +1,84 @@
+/* Minimalist UI Styling */
+
+.input-dark {
+  width: 100%;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  color: #f4f4f5;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.input-dark:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.step-card {
+  display: flex;
+  align-items: center;
+  space-x: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #27272a;
+  background-color: rgba(18, 18, 21, 0.6);
+  color: #71717a;
+  transition: all 0.2s ease;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background-color: #27272a;
+  color: #a1a1aa;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.step-card.active {
+  border-color: rgba(16, 185, 129, 0.4);
+  background-color: rgba(16, 185, 129, 0.05);
+  color: #10b981;
+}
+
+.step-card.active .step-num {
+  background-color: #10b981;
+  color: #09090b;
+}
+
+.step-card.done {
+  border-color: rgba(39, 39, 42, 0.8);
+  color: #d4d4d8;
+}
+
+.step-card.done .step-num {
+  background-color: #27272a;
+  color: #10b981;
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
