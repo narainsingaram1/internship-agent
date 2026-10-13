@@ -1,0 +1,80 @@
+# Candidate Profile Configuration
+# Edit this file with your actual information and copy to config/profile.yaml
+
+personal:
+  first_name: "Alex"
+  last_name: "Chen"
+  preferred_name: "Alex"
+  email: "alex.chen.dev@example.com"
+  phone: "415-555-0199"
+  location: "San Francisco, CA"
+  address: "123 University Ave"
+  city: "San Francisco"
+  state: "CA"
+  zip_code: "94105"
+  country: "United States"
+
+links:
+  linkedin: "https://www.linkedin.com/in/alexchendev"
+  github: "https://github.com/alexchen"
+  portfolio: "https://alexchen.dev"
+  twitter: ""
+
+documents:
+  # Paths relative to the project root or absolute paths
+  resume_path: "assets/resume.pdf"
+  transcript_path: "assets/transcript.pdf"
+  cover_letter_path: ""
+
+education:
+  school: "University of California, Berkeley"
+  degree: "Bachelor of Science"
+  major: "Computer Science"
+  gpa: "3.85"
+  gpa_scale: "4.0"
+  start_date: "August 2022"
+  graduation_date: "May 2026"
+  is_current_student: true
+
+work_authorization:
+  authorized_in_us: true
+  requires_sponsorship_now: false
+  requires_sponsorship_future: false
+  citizenship_status: "U.S. Citizen" # Options: U.S. Citizen, Permanent Resident, F-1 (CPT/OPT), Other
+  can_work_in_person: true
+  can_relocate: true
+
+demographics_eeoc:
+  # Most candidates prefer to decline or self-identify truthfully
+  gender: "Decline To Self Identify" # Male, Female, Non-Binary, Decline To Self Identify
+  race_ethnicity: "Decline To Self Identify" # Asian, White, Hispanic/Latino, Black, Two or More Races, Decline To Self Identify
+  veteran_status: "I am not a protected veteran" # Yes, No / I am not a protected veteran, Decline
+  disability_status: "No, I do not have a disability" # Yes, No, Decline
+
+preferences:
+  expected_hourly_pay: "Competitive / Market Rate"
+  available_start_date: "May 2026"
+  preferred_location: "San Francisco, CA (or Remote)"
+
+# Standard Screening Question Answers & Voice Guidance
+screening_knowledge_base:
+  years_of_experience: 1
+  primary_languages: ["Python", "TypeScript", "Go", "Java", "SQL"]
+  favorite_frameworks: ["React", "FastAPI", "Node.js", "PostgreSQL", "Docker"]
+  
+  # Answers to common short questions
+  answers:
+    why_engineering: >
+      I am passionate about building resilient systems and clean software that solves real user problems.
+      I thrive when tackling complex architectural and full-stack challenges.
+    notable_project: >
+      Designed and built an open-source real-time analytics engine processing 15,000 events/sec with FastAPI and Redis,
+      reducing query latencies by 40%.
+    greatest_strength: >
+      Relentless debugging ability, fast learning curve with new codebases, and strong ownership of shipped code.
+
+  # LLM tone instruction for dynamic "Why this company?" questions
+  essay_tone: >
+    Sound like a sharp, humble, motivated undergraduate engineer. Be direct, authentic, and specific.
+    Avoid clichés like 'I have always dreamed of working at [Company]' or corporate jargon like 'synergy'.
+    Keep answers under 3-4 sentences unless a longer length is explicitly required.
