@@ -1,32 +1,25 @@
 # System & Engine Settings
 
 llm:
-  # OpenRouter is the primary provider for high intelligence at $0
-  provider: "openrouter" # "openrouter" or "gemini"
+  provider: "openrouter"
   
-  # Recommended zero-cost frontier models on OpenRouter:
-  # - "google/gemini-2.0-flash-exp:free"
-  # - "meta-llama/llama-3.3-70b-instruct:free"
-  # - "deepseek/deepseek-r1:free"
-  # - "qwen/qwen-2.5-72b-instruct:free"
-  model: "google/gemini-2.0-flash-exp:free"
-  fallback_model: "meta-llama/llama-3.3-70b-instruct:free"
+  # Active 100% Free Frontier Models on OpenRouter:
+  model: "nvidia/nemotron-3-super-120b-a12b:free"
+  fallback_model: "nvidia/nemotron-3.5-lightning:free"
   
-  # Base URLs
   openrouter_base_url: "https://openrouter.ai/api/v1"
   temperature: 0.2
   max_tokens: 2000
 
 browser:
-  headless: false # Run in headed mode so you can see the form filling live
-  slow_mo_ms: 30 # Gentle typing delay in milliseconds for realism
+  headless: false
+  slow_mo_ms: 30
   timeout_ms: 30000
   viewport_width: 1280
   viewport_height: 900
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 automation:
-  # SAFETY: Absolute hard-block against auto-submitting without human OK
   require_human_confirmation: true
   auto_upload_resume: true
   auto_fill_eeoc: true

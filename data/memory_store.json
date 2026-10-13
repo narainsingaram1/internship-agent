@@ -1,0 +1,51 @@
+{
+  "ca29006": {
+    "question": "CA_29006",
+    "answer": "Yes",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.249951"
+  },
+  "ca29040": {
+    "question": "CA_29040",
+    "answer": "No",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.250727"
+  },
+  "ca38623": {
+    "question": "CA_38623",
+    "answer": "No",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.251157"
+  },
+  "ca38624": {
+    "question": "CA_38624",
+    "answer": "Yes",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.251429"
+  },
+  "qa11628455": {
+    "question": "QA_11628455",
+    "answer": "Python (fully proficient), TypeScript (fully proficient), Go (intermediate), Java (intermediate), SQL (fully proficient).",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.251681"
+  },
+  "qa11628456": {
+    "question": "QA_11628456",
+    "answer": "Designed and built an open-source real-time analytics engine processing 15,000 events/sec with FastAPI and Redis, reducing query latencies by 40%.",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.251888"
+  },
+  "qa11628459": {
+    "question": "QA_11628459",
+    "answer": "None",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T14:04:51.252110"
+  }
+}

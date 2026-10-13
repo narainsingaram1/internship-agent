@@ -59,6 +59,11 @@
           <span class="text-emerald-400 font-semibold">$0.00</span>
         </div>
 
+        <button onclick="openModal('memoryModal')" class="text-xs font-medium text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800/60 transition flex items-center space-x-1.5">
+          <i data-lucide="brain" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Memory Bank</span>
+        </button>
+
         <button onclick="openModal('profileModal')" class="text-xs font-medium text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:bg-zinc-800/60 transition flex items-center space-x-1.5">
           <i data-lucide="user" class="w-3.5 h-3.5"></i>
           <span>Profile</span>
@@ -270,6 +275,37 @@
           </div>
         </div>
 
+        <div class="space-y-2">
+          <label class="text-zinc-400 block mb-1">Street Address</label>
+          <input type="text" id="profAddress" placeholder="123 University Ave" class="input-dark">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-zinc-400 block mb-1">City</label>
+            <input type="text" id="profCity" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">County</label>
+            <input type="text" id="profCounty" placeholder="Fulton / San Francisco" class="input-dark">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-zinc-400 block mb-1">State / Province</label>
+            <input type="text" id="profState" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Postal Code</label>
+            <input type="text" id="profZip" class="input-dark">
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Country</label>
+            <input type="text" id="profCountry" class="input-dark">
+          </div>
+        </div>
+
         <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="text-zinc-400 block mb-1">School</label>
@@ -282,6 +318,25 @@
           <div>
             <label class="text-zinc-400 block mb-1">GPA</label>
             <input type="text" id="profGpa" class="input-dark">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label class="text-zinc-400 block mb-1">Veteran Status</label>
+            <select id="profVeteran" class="input-dark">
+              <option value="I am not a protected veteran">I am not a protected veteran</option>
+              <option value="Yes, I am a protected veteran">Yes, protected veteran</option>
+              <option value="Decline To Self Identify">Decline To Self Identify</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Disability Status</label>
+            <select id="profDisability" class="input-dark">
+              <option value="No, I do not have a disability">No, I do not have a disability</option>
+              <option value="Yes, I have a disability">Yes, have a disability</option>
+              <option value="Decline To Self Identify">Decline To Self Identify</option>
+            </select>
           </div>
         </div>
 
@@ -301,6 +356,29 @@
       <div class="pt-4 border-t border-zinc-800 flex justify-end space-x-2">
         <button onclick="closeModal('profileModal')" class="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white">Cancel</button>
         <button onclick="saveProfile()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs rounded-xl">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MEMORY BANK DRAWER -->
+  <div id="memoryModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('memoryModal')"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-zinc-900 border-l border-zinc-800 p-6 overflow-y-auto space-y-6">
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="brain" class="w-5 h-5 text-cyan-400"></i>
+            <span>Continuous Memory Bank</span>
+          </h2>
+          <p class="text-xs text-zinc-400">Questions and answers learned across applications.</p>
+        </div>
+        <button onclick="closeModal('memoryModal')" class="text-zinc-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="memoryList" class="space-y-3 text-xs">
+        <p class="text-zinc-500">Loading memory store...</p>
       </div>
     </div>
   </div>

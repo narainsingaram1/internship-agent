@@ -10,6 +10,8 @@ from src.browser import BrowserSession
 from src.detector import ATSDetector
 from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, WorkableParser, GenericParser
 from src.llm import LLMClient
+from src.memory import MemoryStore
+from src.resolver import TwoTierResolver
 from src.executor import FormExecutor
 from src.cli import HITLReviewer
 from src.tracker import ApplicationTracker
@@ -106,9 +108,10 @@ def main():
 
         console.print(f"Found [bold cyan]{len(form_fields)}[/bold cyan] interactive form fields.")
 
-        # 7. Generate Plan via LLM
-        console.print("[dim]Generating structured fill plan using OpenRouter frontier model...[/dim]")
-        plan = llm.generate_fill_plan(form_fields, profile, job_meta)
+        # 7. Generate Plan via Two-Tier Resolver & Memory
+        console.print("[dim]Resolving standard fields & synthesizing answers with AI Brain + Memory...[/dim]")
+        resolver = TwoTierResolver(MemoryStore(os.path.join(root_dir, "data", "memory_store.json")), llm)
+        plan = resolver.resolve_form(form_fields, profile, job_meta)
 
         # 8. Execute Fill Plan
         console.print(f"[dim]Filling fields with Playwright...[/dim]")

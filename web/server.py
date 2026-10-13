@@ -25,6 +25,8 @@ from src.browser import BrowserSession
 from src.detector import ATSDetector
 from src.parsers import GreenhouseParser, LeverParser, WorkdayParser, ICIMSParser, WorkableParser, GenericParser
 from src.llm import LLMClient
+from src.memory import MemoryStore
+from src.resolver import TwoTierResolver
 from src.executor import FormExecutor
 from src.tracker import ApplicationTracker
 
@@ -142,6 +144,12 @@ async def get_history():
     return tracker.load_applications()
 
 
+@app.get("/api/memories")
+async def get_memories():
+    memory = MemoryStore(os.path.join(DATA_DIR, "memory_store.json"))
+    return memory.get_list()
+
+
 @app.get("/api/screenshot")
 async def get_screenshot():
     if os.path.exists(SCREENSHOT_PATH):
@@ -193,7 +201,8 @@ def run_autofill_worker(target_url: str, headed: bool):
         all_questions_to_review = []
 
         profile = get_profile()
-        llm = LLMClient()
+        memory_store = MemoryStore(os.path.join(DATA_DIR, "memory_store.json"))
+        resolver = TwoTierResolver(memory_store=memory_store, llm_client=LLMClient())
         executor = FormExecutor(page, profile, project_root=ROOT_DIR)
 
         # Multi-step wizard loop (supports Workday and multi-page forms up to 6 steps)
@@ -209,8 +218,8 @@ def run_autofill_worker(target_url: str, headed: bool):
             engine.log(f"Step {step_count}: Found {len(fields)} interactive fields.")
 
             if fields:
-                engine.set_step(4, f"Mapping Step {step_count} via OpenRouter AI")
-                plan = llm.generate_fill_plan(fields, profile, job_meta)
+                engine.set_step(4, f"Two-Tier Resolution & AI Reasoning (Step {step_count})")
+                plan = resolver.resolve_form(fields, profile, job_meta)
                 engine.plan = plan
                 all_questions_to_review.extend(plan.questions_to_review)
 

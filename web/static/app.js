@@ -216,6 +216,7 @@ function handleCompleted(status) {
 function openModal(id) {
   document.getElementById(id).classList.remove("hidden");
   if (id === "historyModal") loadHistory();
+  if (id === "memoryModal") loadMemories();
 }
 
 function closeModal(id) {
@@ -231,14 +232,26 @@ async function loadProfile() {
     const p = currentProfile.personal || {};
     const e = currentProfile.education || {};
     const l = currentProfile.links || {};
+    const eeoc = currentProfile.demographics_eeoc || {};
 
     document.getElementById("profFirstName").value = p.first_name || "";
     document.getElementById("profLastName").value = p.last_name || "";
     document.getElementById("profEmail").value = p.email || "";
     document.getElementById("profPhone").value = p.phone || "";
+    document.getElementById("profAddress").value = p.address || "";
+    document.getElementById("profCity").value = p.city || "";
+    document.getElementById("profCounty").value = p.county || "";
+    document.getElementById("profState").value = p.state || "";
+    document.getElementById("profZip").value = p.zip_code || "";
+    document.getElementById("profCountry").value = p.country || "United States";
+
     document.getElementById("profSchool").value = e.school || "";
     document.getElementById("profMajor").value = e.major || "";
     document.getElementById("profGpa").value = e.gpa || "";
+
+    if (document.getElementById("profVeteran")) document.getElementById("profVeteran").value = eeoc.veteran_status || "I am not a protected veteran";
+    if (document.getElementById("profDisability")) document.getElementById("profDisability").value = eeoc.disability_status || "No, I do not have a disability";
+
     document.getElementById("profLinkedin").value = l.linkedin || "";
     document.getElementById("profGithub").value = l.github || "";
     document.getElementById("profPortfolio").value = l.portfolio || "";
@@ -251,15 +264,25 @@ async function saveProfile() {
   currentProfile.personal = currentProfile.personal || {};
   currentProfile.education = currentProfile.education || {};
   currentProfile.links = currentProfile.links || {};
+  currentProfile.demographics_eeoc = currentProfile.demographics_eeoc || {};
 
   currentProfile.personal.first_name = document.getElementById("profFirstName").value.trim();
   currentProfile.personal.last_name = document.getElementById("profLastName").value.trim();
   currentProfile.personal.email = document.getElementById("profEmail").value.trim();
   currentProfile.personal.phone = document.getElementById("profPhone").value.trim();
+  currentProfile.personal.address = document.getElementById("profAddress").value.trim();
+  currentProfile.personal.city = document.getElementById("profCity").value.trim();
+  currentProfile.personal.county = document.getElementById("profCounty").value.trim();
+  currentProfile.personal.state = document.getElementById("profState").value.trim();
+  currentProfile.personal.zip_code = document.getElementById("profZip").value.trim();
+  currentProfile.personal.country = document.getElementById("profCountry").value.trim();
 
   currentProfile.education.school = document.getElementById("profSchool").value.trim();
   currentProfile.education.major = document.getElementById("profMajor").value.trim();
   currentProfile.education.gpa = document.getElementById("profGpa").value.trim();
+
+  if (document.getElementById("profVeteran")) currentProfile.demographics_eeoc.veteran_status = document.getElementById("profVeteran").value;
+  if (document.getElementById("profDisability")) currentProfile.demographics_eeoc.disability_status = document.getElementById("profDisability").value;
 
   currentProfile.links.linkedin = document.getElementById("profLinkedin").value.trim();
   currentProfile.links.github = document.getElementById("profGithub").value.trim();
@@ -281,6 +304,44 @@ async function saveProfile() {
 
   alert("✅ Profile saved!");
   closeModal("profileModal");
+}
+
+async function loadMemories() {
+  const container = document.getElementById("memoryList");
+  container.innerHTML = `<p class="text-zinc-500">Loading memory store...</p>`;
+
+  try {
+    const res = await fetch("/api/memories");
+    const memories = await res.json();
+
+    if (!memories || memories.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 rounded-xl border border-dashed border-zinc-800 text-center space-y-1">
+          <p class="text-zinc-400 font-medium">No learned memories yet.</p>
+          <p class="text-[11px] text-zinc-500">As you apply to jobs, any custom screening questions answered by the AI Brain will be saved here so you never have to re-answer them.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = "";
+    memories.forEach((mem) => {
+      const card = document.createElement("div");
+      card.className = "bg-zinc-800/40 border border-zinc-800 rounded-xl p-3.5 space-y-2";
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <span class="font-semibold text-white text-xs">${mem.question}</span>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 whitespace-nowrap">Used ${mem.times_used || 1}x</span>
+        </div>
+        <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px] leading-relaxed">
+          ${mem.answer}
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    container.innerHTML = `<p class="text-red-400">Error loading memories: ${err.message}</p>`;
+  }
 }
 
 async function loadHistory() {

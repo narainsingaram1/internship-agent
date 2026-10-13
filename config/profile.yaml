@@ -7,6 +7,7 @@ personal:
   location: San Francisco, CA
   address: 123 University Ave
   city: San Francisco
+  county: San Francisco
   state: CA
   zip_code: '94105'
   country: United States

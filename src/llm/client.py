@@ -18,8 +18,8 @@ class LLMClient:
         self,
         api_key: str = None,
         base_url: str = "https://openrouter.ai/api/v1",
-        default_model: str = "google/gemini-2.0-flash-exp:free",
-        fallback_model: str = "meta-llama/llama-3.3-70b-instruct:free",
+        default_model: str = "nvidia/nemotron-3-super-120b-a12b:free",
+        fallback_model: str = "nvidia/nemotron-3.5-lightning:free",
     ):
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         if not self.api_key:
@@ -63,8 +63,15 @@ class LLMClient:
             ),
         }
 
-        # Try default model first, fallback if error occurs
-        models_to_try = [self.default_model, self.fallback_model]
+        # Try default model first, fallback through active free models
+        models_to_try = [
+            self.default_model,
+            self.fallback_model,
+            "nvidia/nemotron-3-super-120b-a12b:free",
+            "nvidia/nemotron-3.5-lightning:free",
+            "google/gemma-4-31b-it:free",
+            "cohere/north-mini-code:free",
+        ]
         last_error = None
 
         for model in models_to_try:
