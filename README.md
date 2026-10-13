@@ -42,15 +42,23 @@ Open `config/profile.yaml` to update:
 
 ## 🎯 How to Use
 
-Run the agent with any job application URL:
-
+### Option 1: Modern Interactive Web App (Recommended 🚀)
+Launch the full web dashboard in your browser:
 ```bash
-./venv/bin/python run.py https://boards.greenhouse.io/stripe/jobs/1234567
+./venv/bin/streamlit run app.py
 ```
+* **Interactive Dashboard**: Zero HTML coding needed, reactive real-time dashboard.
+* **Paste & Go**: Enter any job link, toggle live browser visibility.
+* **Review Screen**: View live screenshots of filled forms, field tables, and generated short essays.
+* **One-Click Actions**: Approve & Submit, keep browser open for manual tweaking, or abort.
+* **Visual Profile Editor**: Update your candidate details, work authorization, and drag-and-drop your resume PDF without touching YAML.
 
-Or run interactively (it will prompt you for the URL):
+---
+
+### Option 2: Terminal CLI
+Run the agent directly from terminal:
 ```bash
-./venv/bin/python run.py
+./venv/bin/python run.py "https://boards.greenhouse.io/company/jobs/1234567"
 ```
 
 ### What Happens:
