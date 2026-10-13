@@ -260,20 +260,20 @@ class TwoTierResolver:
                 )
 
         # 16. School / University
-        # A) Combobox: 'What school are you currently attending?' -> Select 'Other'
+        # A) Combobox: 'What school are you currently attending?' -> Select candidate university
         if any(k in blob for k in ["what school are you currently attending", "select your university", "select your school"]):
-            return FormFieldAction(
-                selector=selector, field_name="School Dropdown (Other)", action_type="select_option",
-                value="Other", confidence=1.0, reasoning="Selected 'Other' for University Combobox"
-            )
-        # B) Text/Textarea: 'enter your school below' or standard school input
-        if any(k in blob for k in ["enter your school below", "name of school", "university name", "college name", "institution"]):
             val = edu.get("school", "Georgia Institute of Technology")
-            if val:
-                return FormFieldAction(
-                    selector=selector, field_name="University Name", action_type="type_text",
-                    value=val, confidence=1.0, reasoning="Entered University Name"
-                )
+            return FormFieldAction(
+                selector=selector, field_name="School Dropdown", action_type="select_option",
+                value=val, confidence=1.0, reasoning=f"Select Candidate University: {val}"
+            )
+        # B) Dependent fallback text input: 'enter your school below' or 'if you have selected other'
+        if any(k in blob for k in ["enter your school below", "if you have selected 'other'", "if other"]):
+            val = edu.get("school", "Georgia Institute of Technology")
+            return FormFieldAction(
+                selector=selector, field_name="University Name (If Other)", action_type="type_text",
+                value=val, confidence=0.9, reasoning="University fallback if 'Other' was selected"
+            )
 
         # 17. Degree Level (Radio or Text)
         if el_type == "radio" and any(k in blob for k in ["level of degree", "degree level", "degree are you currently completing"]):
@@ -411,7 +411,7 @@ class TwoTierResolver:
         if any(k in blob for k in ["proficiency in python", "python proficiency", "level of proficiency in python"]):
             return FormFieldAction(
                 selector=selector, field_name="Python Proficiency", action_type="select_option",
-                value="Fully proficient", confidence=1.0, reasoning="Selected Python: Fully proficient"
+                value="Full Proficiency", confidence=1.0, reasoning="Selected Python: Full Proficiency"
             )
 
         # 26. Other Programming Languages (Textarea)

@@ -3,12 +3,112 @@ import os
 import re
 import time
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from playwright.sync_api import Page, TimeoutError
 
 from .llm.prompts import FormFillPlan, FormFieldAction
 
 logger = logging.getLogger(__name__)
+
+
+class OptionMatcher:
+    """Intelligently matches candidate values & aliases to available dropdown options on the live page."""
+
+    TOPIC_ALIASES = {
+        "school": [
+            "georgia institute of technology", "georgia tech", "georgia inst of tech", "gt", "gatech"
+        ],
+        "university": [
+            "georgia institute of technology", "georgia tech", "georgia inst of tech", "gt", "gatech"
+        ],
+        "college": [
+            "georgia institute of technology", "georgia tech", "georgia inst of tech", "gt", "gatech"
+        ],
+        "python": [
+            "full proficiency", "fully proficient", "expert", "fluent", "advanced", "proficient", "intermediate"
+        ],
+        "proficiency": [
+            "full proficiency", "fully proficient", "expert", "fluent", "advanced", "proficient", "intermediate"
+        ],
+        "major": [
+            "computer science", "cs", "computer science and engineering", "software engineering", "computing", "information technology"
+        ],
+        "subject": [
+            "computer science", "cs", "computer science and engineering", "software engineering", "computing", "information technology"
+        ],
+        "degree": [
+            "bachelor of science", "bachelors", "bachelor", "b.s.", "bs", "undergraduate", "bachelor degree"
+        ],
+        "gender": [
+            "prefer not to say", "decline to self identify", "decline to answer", "i do not wish to disclose", "prefer not to disclose", "male"
+        ],
+        "source": [
+            "linkedin", "university career event", "university career site", "other", "company website", "job board"
+        ],
+        "referral": [
+            "linkedin", "university career event", "university career site", "other", "company website"
+        ],
+        "country": [
+            "united states", "usa", "united states of america", "us"
+        ],
+        "work_auth": [
+            "yes", "authorized", "us citizen", "authorized without restriction"
+        ],
+        "sponsorship": [
+            "no", "will not require sponsorship", "no sponsorship required"
+        ],
+    }
+
+    @classmethod
+    def find_best_option(cls, target_value: str, field_name: str, available_options: List[str]) -> Optional[str]:
+        if not available_options:
+            return None
+
+        clean_opts = [o.strip() for o in available_options if o and o.strip()]
+        target_lower = target_value.lower().strip()
+        field_lower = field_name.lower().strip()
+
+        # 1. Exact case-insensitive match
+        for o in clean_opts:
+            if o.lower() == target_lower:
+                return o
+
+        # 2. Topic-aware aliases
+        topic_candidates = [target_lower]
+        for topic, aliases in cls.TOPIC_ALIASES.items():
+            if topic in field_lower or topic in target_lower:
+                topic_candidates.extend(aliases)
+        topic_candidates = list(dict.fromkeys(topic_candidates))
+
+        for cand in topic_candidates:
+            for o in clean_opts:
+                if o.lower() == cand:
+                    return o
+            for o in clean_opts:
+                if cand in o.lower() or o.lower() in cand:
+                    return o
+
+        # 3. Substring & Token Overlap scoring
+        target_tokens = set(re.findall(r"\w+", target_lower))
+        best_opt = None
+        max_overlap = 0
+
+        for o in clean_opts:
+            o_tokens = set(re.findall(r"\w+", o.lower()))
+            overlap = len(target_tokens & o_tokens)
+            if overlap > max_overlap:
+                max_overlap = overlap
+                best_opt = o
+
+        if max_overlap > 0:
+            return best_opt
+
+        # 4. Fallback to 'Other' if candidate value genuinely not present in list
+        for o in clean_opts:
+            if o.lower() in ["other", "other / not listed", "not listed"]:
+                return o
+
+        return None
 
 
 class FormExecutor:
@@ -18,6 +118,7 @@ class FormExecutor:
         self.page = page
         self.profile = profile
         self.project_root = project_root
+        self.executed_options: Dict[str, str] = {}
 
     def _resolve_file_path(self, file_type: str) -> str:
         """Resolve absolute file path for resume or transcript."""
@@ -53,6 +154,19 @@ class FormExecutor:
             if action.action_type == "skip" or not action.value:
                 results["skipped"].append({"field": action.field_name, "reason": action.reasoning})
                 continue
+
+            # Dependent Question Guard:
+            # If a field asks "If you have selected 'Other' ... enter your school below",
+            # check whether the school dropdown previously selected an actual university (and NOT 'Other')!
+            if any(k in action.field_name.lower() for k in ["if you have selected 'other'", "if other", "selected 'other'"]):
+                school_choice = self.executed_options.get("school", "")
+                if school_choice and school_choice.lower() != "other":
+                    logger.info(f"Skipping '{action.field_name}' because '{school_choice}' was already selected in the dropdown.")
+                    results["skipped"].append({
+                        "field": action.field_name,
+                        "reason": f"School was already selected as '{school_choice}' in the main dropdown above."
+                    })
+                    continue
 
             try:
                 self._execute_single_action(action)
@@ -92,7 +206,16 @@ class FormExecutor:
         return loc
 
     def _execute_single_action(self, action: FormFieldAction):
-        """Execute one specific form interaction with fallbacks for Workday, Workable, and React comboboxes."""
+        """Execute one specific form interaction with intelligent dynamic option matching and fallbacks."""
+        # 1. Close any open listboxes or dangling popups from previous interactions
+        try:
+            open_lbs = self.page.locator('[role="listbox"]:visible, ul[role="listbox"]:visible')
+            if open_lbs.count() > 0:
+                self.page.keyboard.press("Escape")
+                self.page.wait_for_timeout(150)
+        except Exception:
+            pass
+
         selector = action.selector
         loc = self._get_element_locator(selector)
 
@@ -114,7 +237,6 @@ class FormExecutor:
             # Fallback for radio or checkbox buttons whose dynamic IDs rotated
             if action.action_type in ["click_checkbox", "select_option"]:
                 candidate_labels = []
-                # Extract text inside parentheses, e.g. "Degree (Bachelors)" -> "Bachelors"
                 m = re.search(r"\(([^)]+)\)", action.field_name)
                 if m:
                     candidate_labels.append(m.group(1))
@@ -160,7 +282,7 @@ class FormExecutor:
                 )
 
         elif action.action_type == "select_option":
-            # 1. Check if a clickable radio/label exists with this text (e.g. Bachelors, Male, Yes)
+            # 1. Check if a clickable radio/label exists with this exact text
             try:
                 label_loc = self.page.locator(f"label:has-text('{action.value}')").first
                 if label_loc.count() > 0 and label_loc.is_visible():
@@ -169,60 +291,67 @@ class FormExecutor:
             except Exception:
                 pass
 
-            # 2. Native select
+            # 2. Native <select> handling with dynamic OptionMatcher
             try:
-                loc.select_option(label=action.value, timeout=1500)
-                return
+                native_opts = loc.locator("option").all_inner_texts()
+                if native_opts:
+                    best_match = OptionMatcher.find_best_option(action.value, action.field_name, native_opts)
+                    if best_match:
+                        loc.select_option(label=best_match, timeout=1500)
+                        self._record_executed_option(action.field_name, best_match)
+                        return
             except Exception:
                 pass
 
-            try:
-                loc.select_option(value=action.value, timeout=1500)
-                return
-            except Exception:
-                pass
-
-            # 3. Workday / Workable / ARIA Combobox popup handling
+            # 3. Workday / Workable / ARIA Combobox popup handling with dynamic OptionMatcher
             try:
                 loc.click(force=True, timeout=2000)
-                self.page.wait_for_timeout(400)
-                option_locators = [
-                    f"ul[role='listbox'] li:has-text('{action.value}')",
-                    f"li[role='option']:has-text('{action.value}')",
-                    f"div[role='option']:has-text('{action.value}')",
-                    f"li:has-text('{action.value}')",
-                    f"[data-automation-id='promptOption']:has-text('{action.value}')",
-                    f"[role='option']:has-text('{action.value}')",
-                    f"div:has-text('{action.value}')",
-                ]
-                for opt_sel in option_locators:
-                    opt = self.page.locator(opt_sel).first
-                    if opt.count() > 0 and opt.is_visible():
-                        try:
-                            opt.scroll_into_view_if_needed(timeout=1000)
-                        except Exception:
-                            pass
-                        opt.click(force=True, timeout=2000)
-                        return
+                self.page.wait_for_timeout(350)
+
+                # Collect all visible options in popup listbox
+                listbox_id = loc.get_attribute("aria-controls") or loc.get_attribute("aria-owns")
+                if listbox_id:
+                    box = self.page.locator(f"#{listbox_id}")
+                else:
+                    box = self.page.locator("ul[role='listbox'], [role='listbox']").first
+
+                avail = box.locator("li, [role='option']").all_inner_texts()
+                best_opt = OptionMatcher.find_best_option(action.value, action.field_name, avail)
+                target_to_click = best_opt or action.value
+
+                # Search within scoped listbox using exact text first, then partial match
+                opt = box.locator(f"li:text-is('{target_to_click}'), [role='option']:text-is('{target_to_click}')").first
+                if opt.count() == 0:
+                    opt = box.locator(f"li:has-text('{target_to_click}'), [role='option']:has-text('{target_to_click}')").first
+
+                if opt.count() > 0:
+                    try:
+                        opt.scroll_into_view_if_needed(timeout=1000)
+                    except Exception:
+                        pass
+                    opt.click(force=True, timeout=2000)
+                    self._record_executed_option(action.field_name, target_to_click)
+
+                # Ensure popup is cleanly closed and input is blurred
+                self.page.wait_for_timeout(200)
+                if listbox_id and self.page.locator(f"#{listbox_id}").is_visible():
+                    self.page.keyboard.press("Escape")
+                    self.page.wait_for_timeout(150)
+                try:
+                    loc.evaluate("el => el.blur()")
+                except Exception:
+                    pass
+                return
             except Exception as e:
                 logger.debug(f"Combobox popup selection attempt failed: {e}")
 
-            # 4. Fuzzy match native options
-            try:
-                options = loc.locator("option").all_inner_texts()
-                matched = [o for o in options if action.value.lower() in o.lower()]
-                if matched:
-                    loc.select_option(label=matched[0], timeout=1500)
-                    return
-            except Exception:
-                pass
-
-            # 5. Type into autocomplete input if editable
+            # 4. Type into autocomplete input if editable
             try:
                 is_readonly = loc.get_attribute("readonly")
                 if not is_readonly:
                     loc.fill(action.value, timeout=1500)
                     self.page.keyboard.press("Enter")
+                    self._record_executed_option(action.field_name, action.value)
                     return
             except Exception:
                 pass
@@ -230,13 +359,28 @@ class FormExecutor:
             raise ValueError(f"Could not find matching option for '{action.value}'")
 
         elif action.action_type == "click_checkbox":
-            if action.value.lower() in ["true", "yes", "1"]:
-                try:
-                    loc.check(force=True, timeout=2000)
-                except Exception:
-                    loc.click(force=True, timeout=2000)
-            else:
-                try:
-                    loc.uncheck(force=True, timeout=2000)
-                except Exception:
-                    pass
+            should_check = action.value.lower() in ["true", "yes", "1"]
+            try:
+                if should_check:
+                    loc.check(force=True, timeout=1000)
+                else:
+                    loc.uncheck(force=True, timeout=1000)
+            except Exception:
+                # For custom stylized checkboxes/radios, click enclosing label or container
+                parent_lbl = loc.locator("xpath=ancestor::label").first
+                if parent_lbl.count() > 0:
+                    parent_lbl.click(force=True, timeout=1500)
+                else:
+                    loc.click(force=True, timeout=1500)
+
+    def _record_executed_option(self, field_name: str, chosen_value: str):
+        """Record the selected value to assist dependent questions (e.g. school vs if-other)."""
+        fn_lower = field_name.lower()
+        if any(k in fn_lower for k in ["school", "university", "college", "attending"]):
+            self.executed_options["school"] = chosen_value
+        elif "python" in fn_lower:
+            self.executed_options["python"] = chosen_value
+        elif "degree" in fn_lower:
+            self.executed_options["degree"] = chosen_value
+        elif "location" in fn_lower:
+            self.executed_options["location"] = chosen_value

@@ -92,16 +92,30 @@
   },
   "qa11628457": {
     "question": "QA_11628457",
-    "answer": "I am drawn to Capula\u2019s systematic trading approach because it combines rigorous research with robust engineering\u2014exactly the environment where I can apply my experience building low\u2011latency analytics pipelines and my passion for clean, reliable code. Through projects like a real\u2011time analytics engine processing 15k events/sec with FastAPI and Redis, I have honed skills in Python, TypeScript, and performance optimization that I would bring to developing trading signals and research tools. My strong debugging ability and fast learning curve enable me to quickly contribute to Capula\u2019s trading strategies while learning from the team\u2019s expertise.",
+    "answer": "I am drawn to Capula\u2019s Trading and Research Summer Internship because it combines rigorous quantitative research with real\u2011world trading strategies\u2014exactly the intersection of my computer science background and my fascination with financial markets. Through coursework and projects, I have built high\u2011performance data pipelines (e.g., a real\u2011time analytics engine processing 15k events/sec with FastAPI and Redis) and gained strong proficiency in Python, TypeScript, and SQL, which I would apply to develop and test trading models, improve research infrastructure, and contribute to Capula\u2019s systematic approach.",
     "source": "ai_generated",
-    "times_used": 4,
-    "updated_at": "2026-10-13T14:56:58.736349"
+    "times_used": 20,
+    "updated_at": "2026-10-13T16:25:42.165560"
   },
   "qa11628458": {
     "question": "QA_11628458",
-    "answer": "I have not managed a personal or family portfolio or traded on a brokerage platform. However, I have worked extensively with quantitative data analysis and algorithmic trading concepts through coursework and personal projects, such as building a real\u2011time analytics engine that processes high\u2011frequency event streams.",
+    "answer": "I have not managed a live trading account or executed real trades, but I have followed equity and macro markets closely, maintained a mock portfolio for educational purposes, and experimented with basic algorithmic strategies using historical data in Python. This exposure has given me a foundational understanding of market mechanics, risk considerations, and the importance of data\u2011driven decision\u2011making, which I am eager to build upon in a professional trading environment.",
     "source": "ai_generated",
-    "times_used": 4,
-    "updated_at": "2026-10-13T14:56:58.736682"
+    "times_used": 20,
+    "updated_at": "2026-10-13T16:25:42.166960"
+  },
+  "qa12570730": {
+    "question": "QA_12570730",
+    "answer": "I am a U.S. Citizen and do not hold a UK passport or visa that authorizes me to work in the UK.",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T15:34:06.322502"
+  },
+  "qa12570732": {
+    "question": "QA_12570732",
+    "answer": "I am drawn to Capula\u2019s technology\u2011driven approach to investment management because it combines rigorous quantitative research with robust software engineering. My experience building a real\u2011time analytics engine that processes 15,000 events/sec using FastAPI and Redis has honed my skills in low\u2011latency data pipelines, concurrency, and performance optimization\u2014capabilities directly applicable to developing trading infrastructure and research tools. I am proficient in Python, TypeScript, Go, and SQL, and I enjoy taking ownership of end\u2011to\u2011end features, from design through testing and deployment. I would bring strong debugging instincts, a fast learning curve for new domains, and a collaborative mindset to help Capula\u2019s engineering team deliver reliable, high\u2011performance systems.",
+    "source": "ai_generated",
+    "times_used": 1,
+    "updated_at": "2026-10-13T15:34:06.323381"
   }
 }
