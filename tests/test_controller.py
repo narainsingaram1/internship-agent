@@ -130,6 +130,15 @@ class ControllerBrowserTests(unittest.TestCase):
         results = self.executor.execute_plan(FormFillPlan(actions=[action]))
         self.assertEqual(len(results["succeeded"]), 1)
 
+    def test_resume_preserves_manual_edits_to_verified_fields(self):
+        self.page.set_content('<label for=email>Email</label><input id=email><button>Submit Application</button>')
+        controller = ApplicationController(self.page, GenericParser(), self.resolver, self.executor)
+        controller.run({}, {})
+        self.page.locator("#email").fill("corrected@example.com")
+        controller.run({}, {})
+        self.assertEqual(self.page.locator("#email").input_value(), "corrected@example.com")
+        self.assertEqual(len(self.resolver.batches), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

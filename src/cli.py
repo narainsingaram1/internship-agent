@@ -1,4 +1,6 @@
 """Terminal Interface and Human-In-The-Loop (HITL) Verification."""
+import re
+import time
 from typing import Dict, Any, List
 from rich.console import Console
 from rich.table import Table
@@ -82,29 +84,44 @@ class HITLReviewer:
         else:
             return "abort"
 
-    def submit_application(self) -> bool:
-        """Locate and click the final submit button."""
-        console.print("[dim]Attempting submission...[/dim]")
-        submit_selectors = [
-            "input[type='submit']",
-            "button[type='submit']",
-            "#submit_app",
-            "button:has-text('Submit Application')",
-            "button:has-text('Submit')",
-            "button:has-text('Apply')",
-        ]
-
-        for sel in submit_selectors:
-            loc = self.page.locator(sel).first
-            if loc.count() > 0 and loc.is_visible():
-                try:
-                    loc.click(timeout=5000)
-                    console.print("[bold green]✅ Successfully clicked Submit button![/bold green]")
-                    self.page.wait_for_timeout(3000)
+    def submission_confirmed(self) -> bool:
+        pattern = re.compile(
+            r"^(?:thank you for (?:applying|submitting)|your application (?:has been |was |is )?"
+            r"(?:successfully )?(?:submitted|received)|we have received your application|"
+            r"application (?:submitted|received)|successfully applied)", re.I
+        )
+        for frame in self.page.frames:
+            for text in frame.locator("h1:visible,h2:visible,h3:visible,p:visible,[role='status']:visible,[role='alert']:visible").all_inner_texts():
+                if len(text) < 300 and pattern.search(text.strip()):
                     return True
-                except Exception as e:
-                    console.print(f"[yellow]Failed clicking {sel}: {e}[/yellow]")
+        return False
 
-        console.print("[yellow]Could not find visible submit button automatically. Please click it in the browser![/yellow]")
-        Prompt.ask("Press Enter after clicking submit in the browser...")
-        return True
+    def submit_application(self, confirmation_timeout=5) -> bool:
+        """Click an explicit final action once; success requires a receipt in the UI."""
+        if self.submission_confirmed():
+            return True
+        candidates = []
+        for frame in self.page.frames:
+            if frame.locator("input[type='password']:visible, [aria-invalid='true']:visible, input:invalid:visible, select:invalid:visible, textarea:invalid:visible").count():
+                return False
+            next_buttons = frame.get_by_role("button", name=re.compile(r"^(next|continue|save and continue)$", re.I))
+            if any(next_buttons.nth(i).is_visible() for i in range(next_buttons.count())):
+                return False
+            buttons = frame.get_by_role("button", name=re.compile(r"^(submit|submit application|send application|complete application|finish|apply)$", re.I))
+            for i in range(buttons.count()):
+                button = buttons.nth(i)
+                if button.is_visible() and button.is_enabled():
+                    if button.inner_text().strip().lower() == "apply" and not button.evaluate("el => el.type === 'submit' && Boolean(el.closest('form'))"):
+                        continue
+                    candidates.append(button)
+        if len(candidates) != 1:
+            console.print("[yellow]Final submit action is unavailable or ambiguous. Review the live browser.[/yellow]")
+            return False
+        candidates[0].click(timeout=5000)
+        deadline = time.monotonic() + confirmation_timeout
+        while time.monotonic() < deadline:
+            self.page.wait_for_timeout(200)
+            if self.submission_confirmed():
+                return True
+        console.print("[yellow]Submission is unconfirmed. The browser remains open for review.[/yellow]")
+        return False

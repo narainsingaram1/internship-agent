@@ -96,7 +96,7 @@ def main():
             parser = GenericParser()
 
         job_meta = parser.extract_job_metadata(page)
-        job_meta.update(meta)
+        job_meta.update({key: value for key, value in meta.items() if value})
         console.print(f"Role: [bold white]{job_meta.get('title', 'Unknown Title')}[/bold white]")
         if job_meta.get("company"):
             console.print(f"Company: [bold white]{job_meta.get('company')}[/bold white]")
@@ -105,6 +105,9 @@ def main():
         executor = FormExecutor(page, profile, project_root=root_dir)
         controller = ApplicationController(page, parser, resolver, executor, log=logger.info)
         plan, exec_results = controller.run(profile, job_meta)
+        page = controller.page
+        session.page = page
+        logger.info("Navigation usage: %s", exec_results.get("navigation", {}))
 
         # 9. Human-In-The-Loop Verification
         reviewer = HITLReviewer(page)
@@ -113,7 +116,9 @@ def main():
         user_action = reviewer.prompt_human_action()
 
         if user_action == "submit":
-            reviewer.submit_application()
+            if not reviewer.submit_application():
+                console.print("[yellow]Submission could not be confirmed; no Submitted record was created.[/yellow]")
+                return
             tracker.record_application(
                 url=target_url,
                 company=job_meta.get("company", ""),

@@ -29,6 +29,12 @@ class ScreeningAnswer(BaseModel):
     confidence: float
 
 
+class NavigationDecision(BaseModel):
+    action: Literal["click", "wait", "handoff"]
+    control_id: Optional[int] = None
+    reason: str = Field(default="", max_length=200)
+
+
 FORM_MAPPING_SYSTEM_PROMPT = """You are an elite, precision job application autofill assistant.
 Your job is to match form inputs extracted from an internship application page against a candidate's structured profile.
 

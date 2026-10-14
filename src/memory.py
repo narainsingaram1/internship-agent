@@ -39,30 +39,14 @@ class MemoryStore:
 
         memories = self.load_all()
         norm_q = self._normalize_key(question_text)
-
-        # 1. Exact normalized match
-        for key, entry in memories.items():
+        for entry in memories.values():
+            if entry.get("source") not in {"human_verified", "user_verified", "human_confirmed", "approved"}:
+                continue
+            if entry.get("scope") != "global_fact":
+                continue  # Company-specific essays must not be reused as universal answers.
             if norm_q == self._normalize_key(entry.get("question", "")):
-                ans = entry.get("answer", "")
-                if options:
-                    # Match to closest available option if dropdown
-                    matched_opt = self._match_option(ans, options)
-                    if matched_opt:
-                        return matched_opt
-                return ans
-
-        # 2. Substring / semantic keyword match
-        for key, entry in memories.items():
-            mem_q = self._normalize_key(entry.get("question", ""))
-            # If both contain strong shared keywords
-            if (len(norm_q) > 10 and norm_q in mem_q) or (len(mem_q) > 10 and mem_q in norm_q):
-                ans = entry.get("answer", "")
-                if options:
-                    matched_opt = self._match_option(ans, options)
-                    if matched_opt:
-                        return matched_opt
-                return ans
-
+                answer = entry.get("answer", "")
+                return self._match_option(answer, options) if options else answer
         return None
 
     def _match_option(self, target_answer: str, options: List[str]) -> Optional[str]:
@@ -71,12 +55,9 @@ class MemoryStore:
         for opt in options:
             if target_lower == opt.lower():
                 return opt
-        for opt in options:
-            if target_lower in opt.lower() or opt.lower() in target_lower:
-                return opt
         return None
 
-    def save_answer(self, question_text: str, answer: str, source: str = "ai_generated"):
+    def save_answer(self, question_text: str, answer: str, source: str = "ai_generated", scope: str = "draft"):
         """Save a newly generated or human-confirmed question and answer."""
         if not question_text or not answer:
             return
@@ -91,6 +72,7 @@ class MemoryStore:
             "question": question_text.strip(),
             "answer": answer.strip(),
             "source": source,
+            "scope": scope,
             "times_used": times_used,
             "updated_at": datetime.now().isoformat(),
         }

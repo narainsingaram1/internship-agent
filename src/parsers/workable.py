@@ -77,7 +77,8 @@ class WorkableParser(BaseParser):
         """Extract all interactive form fields from Workable application form."""
         if prepare:
             self.ensure_application_view(page)
-        self.dismiss_overlays(page)
+        if prepare:
+            self.dismiss_overlays(page)
 
         # Ensure scroll to load lazy-rendered custom questions
         try:

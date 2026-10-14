@@ -185,10 +185,26 @@ async function submitApplication() {
   try {
     const res = await fetch("/api/apply/submit", { method: "POST" });
     if (!res.ok) throw new Error("Submission failed");
-    alert("🎉 Application submitted successfully!");
+    const result = await res.json();
+    if (result.status !== "submitted") {
+      throw new Error("Submission could not be confirmed. The browser remains open for review.");
+    }
+    alert("Application submission confirmed.");
     document.getElementById("reviewSection").classList.add("hidden");
   } catch (err) {
     alert("Error submitting: " + err.message);
+  }
+}
+
+// Abort Application
+async function resumeApplication() {
+  try {
+    const res = await fetch("/api/apply/resume", { method: "POST" });
+    if (!res.ok) throw new Error((await res.json()).detail || "Could not resume");
+    document.getElementById("reviewSection").classList.add("hidden");
+    appendLog(new Date().toLocaleTimeString(), "Resuming the existing browser session…");
+  } catch (err) {
+    alert(err.message);
   }
 }
 

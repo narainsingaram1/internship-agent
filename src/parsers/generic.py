@@ -114,7 +114,8 @@ class GenericParser(BaseParser):
         """Walk all visible interactive form controls across main document and accessible iframes."""
         if prepare:
             self.ensure_application_view(page)
-        self.dismiss_overlays(page)
+        if prepare:
+            self.dismiss_overlays(page)
 
         raw_fields = page.evaluate(r"""() => {
             const results = [];

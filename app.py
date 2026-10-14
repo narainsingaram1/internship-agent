@@ -162,7 +162,7 @@ with tab_apply:
                 parser = GenericParser()
 
             job_meta = parser.extract_job_metadata(page)
-            job_meta.update(meta)
+            job_meta.update({key: value for key, value in meta.items() if value})
 
             progress_bar.progress(50)
             status_box.info(f"📄 Extracting form fields for **{job_meta.get('title', 'Role')}**...")
@@ -172,6 +172,8 @@ with tab_apply:
             progress_bar.progress(70)
             controller = ApplicationController(page, parser, resolver, executor)
             plan, exec_results = controller.run(profile, job_meta)
+            page = controller.page
+            session.page = page
             progress_bar.progress(100)
             status_box.info(plan.summary)
 
@@ -248,7 +250,9 @@ with tab_apply:
                 from src.cli import HITLReviewer
                 from src.tracker import ApplicationTracker
                 reviewer = HITLReviewer(page)
-                reviewer.submit_application()
+                if not reviewer.submit_application():
+                    st.warning("Submission could not be confirmed. Review the open browser.")
+                    st.stop()
 
                 tracker = ApplicationTracker(APPS_TRACKER_PATH)
                 tracker.record_application(

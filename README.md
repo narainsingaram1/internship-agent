@@ -1,16 +1,16 @@
 # 🚀 Autonomous Internship Application Agent
 
-A high-precision, hybrid automated internship application engine powered by **100% free frontier models via OpenRouter** (e.g., Gemini 2.0 Flash / Llama 3.3 70B) and Playwright.
+A hybrid internship application assistant using Playwright for browser actions and OpenRouter for bounded navigation decisions and unresolved questions.
 
 ---
 
 ## ✨ Key Features
 
-1. **$0.00 Running Cost**: Uses top-tier free endpoints on OpenRouter (`google/gemini-2.0-flash-exp:free`, `meta-llama/llama-3.3-70b-instruct:free`).
+1. **Bounded AI usage**: Known Apply flows and profile fields use code. Unfamiliar navigation allows at most 3 AI requests per session; answer generation allows at most 4 requests, including fallback attempts. Provider pricing and availability depend on the configured model.
 2. **ATS Fast-Paths**: Instant, deterministic DOM parsing for **Greenhouse**, **Lever**, and generic career pages.
 3. **Smart Question Answering**: Synthesizes concise, authentic responses for short-answer questions (*"Why do you want to work here?"*) grounded strictly in your experience.
 4. **Mandatory Human Verification (HITL)**: Never submits on its own. Displays a clean terminal diff, opens the live browser for review, and only submits when you confirm with `[S]` or `[T]`.
-5. **Anti-Bot Stealth**: Human-like keystroke delays, disabled automation flags, and clean viewport simulation.
+5. **Navigation and recovery**: Follow Apply/Apply Manually transitions, redirects, new tabs, and embedded forms. Verify page changes, discover conditional fields, and pause on login or human verification.
 
 ---
 
@@ -57,6 +57,22 @@ Launch the dark-mode web application in your browser:
 * **Slide-over Profile & History Drawers**: Edit personal info and drag-and-drop resume PDFs directly in the browser.
 
 ---
+
+
+### Navigation, efficiency, and resume
+
+Start with the job posting URL, not an already-open form. The shared controller first navigates toward the form, then fills and verifies fields. Known controls use no navigation AI requests. Unfamiliar pages send a compact snapshot (at most 5,500 characters of page data), with no candidate profile, raw HTML, screenshot, or conversation history. Navigation replies are capped at 160 output tokens and may select only a currently observed control.
+
+Use **Watch Live Browser** when authentication may be required. After signing in, clearing a challenge, or editing a field, choose **Resume autofill** in the dashboard. The browser stays on its owning worker thread; the same navigation and answer-call budgets carry across resumes. Previously verified fields are preserved so manual corrections are not overwritten. Final submission requires approval and a visible receipt before a Submitted record is written.
+
+Generated answers remain drafts. The cache reuses only exact questions marked as approved global facts; company-specific essays and old unapproved generated answers are not automatically reused. Missing facts and ambiguous options remain for review rather than being guessed.
+
+The controller is bounded, not a guarantee of completion across every employer site. Unsupported widgets and unavailable models can still require manual completion. Logs include navigation calls, clicks, and provider-reported token counts when available.
+
+Run the local regression suite (browser pages and provider responses are fixtures; no applications are sent):
+```bash
+./venv/bin/python -m unittest discover -s tests -v
+```
 
 ### Option 2: Terminal CLI
 Run the agent directly from terminal:

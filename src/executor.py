@@ -15,101 +15,31 @@ logger = logging.getLogger(__name__)
 class OptionMatcher:
     """Intelligently matches candidate values & aliases to available dropdown options on the live page."""
 
-    TOPIC_ALIASES = {
-        "school": [
-            "georgia institute of technology", "georgia tech", "georgia inst of tech", "gt", "gatech"
-        ],
-        "university": [
-            "georgia institute of technology", "georgia tech", "georgia inst of tech", "gt", "gatech"
-        ],
-        "college": [
-            "georgia institute of technology", "georgia tech", "georgia inst of tech", "gt", "gatech"
-        ],
-        "python": [
-            "full proficiency", "fully proficient", "expert", "fluent", "advanced", "proficient", "intermediate"
-        ],
-        "proficiency": [
-            "full proficiency", "fully proficient", "expert", "fluent", "advanced", "proficient", "intermediate"
-        ],
-        "major": [
-            "computer science", "cs", "computer science and engineering", "software engineering", "computing", "information technology"
-        ],
-        "subject": [
-            "computer science", "cs", "computer science and engineering", "software engineering", "computing", "information technology"
-        ],
-        "degree": [
-            "bachelor of science", "bachelors", "bachelor", "b.s.", "bs", "undergraduate", "bachelor degree"
-        ],
-        "gender": [
-            "prefer not to say", "decline to self identify", "decline to answer", "i do not wish to disclose", "prefer not to disclose", "male"
-        ],
-        "source": [
-            "linkedin", "university career event", "university career site", "other", "company website", "job board"
-        ],
-        "referral": [
-            "linkedin", "university career event", "university career site", "other", "company website"
-        ],
-        "country": [
-            "united states", "usa", "united states of america", "us"
-        ],
-        "work_auth": [
-            "yes", "authorized", "us citizen", "authorized without restriction"
-        ],
-        "sponsorship": [
-            "no", "will not require sponsorship", "no sponsorship required"
-        ],
-    }
+    # Equivalence depends on the intended value, never on the field topic.
+    EQUIVALENT_VALUES = (
+        ("georgia institute of technology", "georgia tech", "georgia inst of tech", "gatech"),
+        ("united states", "united states of america", "usa", "us"),
+        ("bachelor of science", "b.s.", "bs"),
+        ("computer science", "cs"),
+    )
 
     @classmethod
     def find_best_option(cls, target_value: str, field_name: str, available_options: List[str]) -> Optional[str]:
-        if not available_options:
+        def normalize(value):
+            return " ".join(value.casefold().split())
+        target = normalize(target_value)
+        if not target:
             return None
-
-        clean_opts = [o.strip() for o in available_options if o and o.strip()]
-        target_lower = target_value.lower().strip()
-        field_lower = field_name.lower().strip()
-
-        # 1. Exact case-insensitive match
-        for o in clean_opts:
-            if o.lower() == target_lower:
-                return o
-
-        # 2. Topic-aware aliases
-        topic_candidates = [target_lower]
-        for topic, aliases in cls.TOPIC_ALIASES.items():
-            if topic in field_lower or topic in target_lower:
-                topic_candidates.extend(aliases)
-        topic_candidates = list(dict.fromkeys(topic_candidates))
-
-        for cand in topic_candidates:
-            for o in clean_opts:
-                if o.lower() == cand:
-                    return o
-            for o in clean_opts:
-                if cand in o.lower() or o.lower() in cand:
-                    return o
-
-        # 3. Substring & Token Overlap scoring
-        target_tokens = set(re.findall(r"\w+", target_lower))
-        best_opt = None
-        max_overlap = 0
-
-        for o in clean_opts:
-            o_tokens = set(re.findall(r"\w+", o.lower()))
-            overlap = len(target_tokens & o_tokens)
-            if overlap > max_overlap:
-                max_overlap = overlap
-                best_opt = o
-
-        if max_overlap > 0:
-            return best_opt
-
-        # 4. Fallback to 'Other' if candidate value genuinely not present in list
-        for o in clean_opts:
-            if o.lower() in ["other", "other / not listed", "not listed"]:
-                return o
-
-        return None
+        candidates = {target}
+        for aliases in cls.EQUIVALENT_VALUES:
+            normalized = {normalize(alias) for alias in aliases}
+            if target in normalized:
+                candidates.update(normalized)
+        matches = [option for option in available_options if normalize(option) in candidates]
+        exact = [option for option in matches if normalize(option) == target]
+        if exact:
+            return exact[0]
+        return matches[0] if len(matches) == 1 else None
 
 
 class FormExecutor:
@@ -120,6 +50,7 @@ class FormExecutor:
         self.profile = profile
         self.project_root = project_root
         self.executed_options: Dict[str, str] = {}
+        self.active_frame = None
 
     def _resolve_file_path(self, file_type: str) -> str:
         """Resolve absolute file path for resume or transcript."""
@@ -137,14 +68,6 @@ class FormExecutor:
 
     def execute_plan(self, plan: FormFillPlan) -> Dict[str, Any]:
         """Execute all actions specified in the FormFillPlan."""
-        # Pre-execution: forcefully destroy any backdrops or cookie modals that intercept pointer events
-        try:
-            self.page.evaluate("""() => {
-                document.querySelectorAll('[data-ui*="cookie"], [data-ui="backdrop"], [class*="backdrop"], #onetrust-banner-sdk').forEach(el => el.remove());
-            }""")
-        except Exception:
-            pass
-
         results = {
             "succeeded": [],
             "failed": [],
@@ -228,6 +151,8 @@ class FormExecutor:
 
     def _get_element_locator(self, selector: str):
         """Find element on main page or inside iCIMS iframe if present."""
+        if self.active_frame is not None:
+            return self.active_frame.locator(selector).first
         loc = self.page.locator(selector).first
         if loc.count() > 0:
             return loc

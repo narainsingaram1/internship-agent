@@ -9,6 +9,8 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 from threading import Thread
+from queue import Queue
+from concurrent.futures import Future
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -58,6 +60,8 @@ class EngineSession:
         self.execution_results = {}
         self.clients = set()
         self.loop = None
+        self.commands = Queue()
+        self.worker_active = False
 
     async def broadcast(self, data: dict):
         dead_clients = set()
@@ -192,7 +196,7 @@ def run_autofill_worker(target_url: str, headed: bool):
             parser = GenericParser()
 
         job_meta = parser.extract_job_metadata(page)
-        job_meta.update(meta)
+        job_meta.update({key: value for key, value in meta.items() if value})
         engine.job_meta = job_meta
         engine.log(f"Role: {job_meta.get('title', 'Unknown')} at {job_meta.get('company', 'Unknown')}")
 
@@ -202,29 +206,63 @@ def run_autofill_worker(target_url: str, headed: bool):
         executor = FormExecutor(page, profile, project_root=ROOT_DIR)
         engine.set_step(3, "Observing Application Form")
         controller = ApplicationController(page, parser, resolver, executor, log=engine.log)
-        engine.set_step(4, "Resolving New Fields")
-        plan, combined_results = controller.run(profile, job_meta)
-        engine.plan = plan
-        engine.execution_results = combined_results
-        all_questions_to_review = plan.questions_to_review
-        engine.set_step(5, "Review Verified Fields")
+        while True:
+            engine.set_step(4, "Navigating and Filling Application")
+            plan, combined_results = controller.run(get_profile(), job_meta)
+            page = controller.page
+            session.page = page
+            engine.page = page
+            engine.plan = plan
+            engine.execution_results = combined_results
+            engine.set_step(5, "Review Verified Fields")
+            engine.log("Navigation usage: " + json.dumps(combined_results.get("navigation", {})))
+            engine.log("Answer usage: " + json.dumps(combined_results.get("ai_usage", {})))
+            page.screenshot(path=SCREENSHOT_PATH)
+            engine.log("Autofill paused for review: " + plan.summary)
+            engine.state = "review"
+            if engine.loop:
+                asyncio.run_coroutine_threadsafe(engine.broadcast({
+                    "type": "review_ready", "job_meta": engine.job_meta,
+                    "plan": {"questions_to_review": plan.questions_to_review},
+                    "results": combined_results, "has_screenshot": True,
+                }), engine.loop)
+            # Keep Playwright on its owning thread during pause/resume and submission.
+            while True:
+                command, result = engine.commands.get()
+                try:
+                    if command == "resume":
+                        engine.state = "running"
+                        result.set_result({"status": "resuming"})
+                        break
+                    if command == "abort":
+                        session.stop()
+                        engine.page = None
+                        engine.state = "idle"
+                        result.set_result({"status": "aborted"})
+                        return
+                    if command == "submit":
+                        from src.cli import HITLReviewer
+                        confirmed = HITLReviewer(page).submit_application()
+                        if not confirmed:
+                            engine.state = "review"
+                            result.set_result({"status": "unconfirmed"})
+                            continue
+                        tracker = ApplicationTracker(os.path.join(DATA_DIR, "applications.json"))
+                        tracker.record_application(
+                            url=job_meta.get("url", ""), company=job_meta.get("company", ""),
+                            title=job_meta.get("title", ""), status="Submitted",
+                            fields_filled=len(combined_results.get("succeeded", [])),
+                            notes="Submission confirmation verified in browser",
+                        )
+                        session.stop()
+                        engine.page = None
+                        engine.state = "submitted"
+                        result.set_result({"status": "submitted"})
+                        return
+                except Exception as exc:
+                    engine.state = "review"
+                    result.set_exception(exc)
 
-        # Capture preview screenshot
-        page.screenshot(path=SCREENSHOT_PATH)
-        engine.log("Autofill paused for review: " + plan.summary)
-
-        engine.state = "review"
-        if engine.loop:
-            asyncio.run_coroutine_threadsafe(
-                engine.broadcast({
-                    "type": "review_ready",
-                    "job_meta": engine.job_meta,
-                    "plan": {"questions_to_review": list(set(all_questions_to_review))},
-                    "results": combined_results,
-                    "has_screenshot": True,
-                }),
-                engine.loop
-            )
 
     except Exception as e:
         engine.state = "error"
@@ -235,6 +273,9 @@ def run_autofill_worker(target_url: str, headed: bool):
                 engine.loop
             )
 
+    finally:
+        engine.worker_active = False
+
 
 @app.post("/api/apply/start")
 async def start_application(payload: dict):
@@ -244,58 +285,46 @@ async def start_application(payload: dict):
     if not url.startswith("http"):
         raise HTTPException(status_code=400, detail="Invalid URL")
 
+    if engine.worker_active:
+        raise HTTPException(status_code=409, detail="An application is already active. Resume or abort it first.")
+    engine.commands = Queue()
+    engine.worker_active = True
+    engine.state = "running"
     engine.loop = asyncio.get_event_loop()
     Thread(target=run_autofill_worker, args=(url, headed), daemon=True).start()
     return {"status": "started", "url": url}
 
 
+async def dispatch_browser_command(command: str):
+    if not engine.worker_active or engine.state != "review":
+        raise HTTPException(status_code=409, detail="The application must be paused for review.")
+    result = Future()
+    engine.state = "running"
+    engine.commands.put((command, result))
+    try:
+        return await asyncio.shield(asyncio.wrap_future(result))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/apply/resume")
+async def resume_application():
+    return await dispatch_browser_command("resume")
+
+
 @app.post("/api/apply/submit")
 async def submit_application():
-    if not engine.page:
-        raise HTTPException(status_code=400, detail="No active application session")
-
-    try:
-        from src.cli import HITLReviewer
-        reviewer = HITLReviewer(engine.page)
-        reviewer.submit_application()
-
-        tracker = ApplicationTracker(os.path.join(DATA_DIR, "applications.json"))
-        tracker.record_application(
-            url=engine.job_meta.get("url", ""),
-            company=engine.job_meta.get("company", ""),
-            title=engine.job_meta.get("title", ""),
-            status="Submitted",
-            fields_filled=len(engine.execution_results.get("succeeded", [])),
-            notes="Submitted via Minimalist Web UI",
-        )
-
-        if engine.browser_session:
-            engine.browser_session.stop()
-
-        engine.state = "submitted"
+    result = await dispatch_browser_command("submit")
+    if result["status"] == "submitted":
         await engine.broadcast({"type": "completed", "status": "submitted"})
-        return {"status": "submitted"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return result
 
 
 @app.post("/api/apply/abort")
 async def abort_application():
-    if engine.browser_session:
-        engine.browser_session.stop()
-
-    engine.state = "idle"
-    tracker = ApplicationTracker(os.path.join(DATA_DIR, "applications.json"))
-    tracker.record_application(
-        url=engine.job_meta.get("url", ""),
-        company=engine.job_meta.get("company", ""),
-        title=engine.job_meta.get("title", ""),
-        status="Aborted",
-        fields_filled=0,
-        notes="Aborted by user in Web UI",
-    )
+    result = await dispatch_browser_command("abort")
     await engine.broadcast({"type": "completed", "status": "aborted"})
-    return {"status": "aborted"}
+    return result
 
 
 # WebSocket for real-time log streaming
